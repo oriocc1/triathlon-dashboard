@@ -9,7 +9,7 @@ import os, json, base64, datetime, time, sys
 try:
     import requests
 except ImportError:
-    sys.exit("Run: pip install requests garminconnect garth")
+    sys.exit("Run: pip install requests")
 
 
 # ── Strava ────────────────────────────────────────────────────────────────────
@@ -88,43 +88,9 @@ def fetch_strava_activities(days=90):
 
 # ── Garmin (wellness only) ────────────────────────────────────────────────────
 
-def garmin_login():
-    try:
-        import garth
-        from garminconnect import Garmin
-    except ImportError:
-        raise RuntimeError("Run: pip install garminconnect garth")
-
-    tokens_b64 = os.environ.get("GARMIN_TOKENS", "")
-    if tokens_b64:
-        try:
-            token_str = base64.b64decode(tokens_b64).decode()
-            garth.client.loads(token_str)
-            client = Garmin()
-            client.login()
-            print("Garmin: authenticated via stored tokens")
-            return client
-        except Exception as e:
-            print(f"Garmin token auth failed ({e}), trying email/password...")
-
-    email    = os.environ.get("GARMIN_EMAIL", "")
-    password = os.environ.get("GARMIN_PASSWORD", "")
-    if not email:
-        raise RuntimeError("Garmin auth unavailable — set valid GARMIN_TOKENS or GARMIN_EMAIL + GARMIN_PASSWORD")
-
-    from garminconnect import Garmin
-    client = Garmin(email=email, password=password)
-    client.login()
-    print("Garmin: authenticated via email/password")
-    return client
-
-
 def fetch_garmin_wellness(days=30):
-    try:
-        client = garmin_login()
-    except Exception as e:
-        print(f"WARNING: Garmin skipped — {e}")
-        return {}
+    print("Garmin wellness: skipped (coming soon)")
+    return {}
     today  = datetime.date.today()
     wellness = {}
 

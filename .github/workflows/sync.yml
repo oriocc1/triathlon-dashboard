@@ -19,7 +19,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests garminconnect garth
+        run: pip install requests
 
       - name: Sync data
         env:
