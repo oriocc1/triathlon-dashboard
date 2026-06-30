@@ -12,12 +12,25 @@ except ImportError:
     sys.exit("Run: pip install requests")
 
 
+def get_env(name):
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(
+            f"Missing required environment variable: {name}.\n"
+            f"Set it before running, for example:\n"
+            f"  set {name}=<value>  # Windows PowerShell\n"
+            f"  $env:{name}='<value>'  # PowerShell\n"
+            f"  export {name}=<value>  # macOS/Linux\n"
+        )
+    return value
+
+
 # ── Strava ────────────────────────────────────────────────────────────────────
 
 def fetch_strava_activities(days=90):
-    client_id     = os.environ["STRAVA_CLIENT_ID"]
-    client_secret = os.environ["STRAVA_CLIENT_SECRET"]
-    refresh_token = os.environ["STRAVA_REFRESH_TOKEN"]
+    client_id     = get_env("STRAVA_CLIENT_ID")
+    client_secret = get_env("STRAVA_CLIENT_SECRET")
+    refresh_token = get_env("STRAVA_REFRESH_TOKEN")
 
     print("Refreshing Strava access token...")
     r = requests.post("https://www.strava.com/oauth/token", data={
@@ -89,10 +102,117 @@ def fetch_strava_activities(days=90):
 # ── Garmin (wellness only) ────────────────────────────────────────────────────
 
 def fetch_garmin_wellness(days=30):
-    print("Garmin wellness: skipped (coming soon)")
-    return {}
-    today  = datetime.date.today()
-    wellness = {}
+    try:
+        from garminconnect import Garmin
+    except ImportError:
+        print("WARNING: garminconnect not installed, skipping Garmin")
+        return {}
+
+    try:
+        tokens = os.environ.get("GARMIN_TOKENS", "").strip()
+        client = None
+
+        if tokens:
+            try:
+                import garth
+            except ImportError:
+                print("WARNING: garth not installed, cannot restore GARMIN_TOKENS")
+                return {}
+
+            try:
+                token_payload = base64.b64decode(tokens.encode()).decode()
+                if not token_payload or token_payload.strip() in ('null', '[null, null]', '{}'):
+                    raise ValueError("Decoded token payload is empty or invalid")
+                client = garth.client.loads(token_payload)
+                if client is None:
+                    raise ValueError("garth.client.loads returned None")
+                print("Garmin: logged in via stored GARMIN_TOKENS")
+            except Exception as e:
+                print(
+                    "WARNING: GARMIN_TOKENS restore failed",
+                    f"({e}).",
+                    "Skipping Garmin wellness. Regenerate GARMIN_TOKENS if needed."
+                )
+                return {}
+
+        if client is None:
+            if tokens:
+                print("WARNING: GARMIN_TOKENS restore failed, skipping Garmin wellness. Regenerate GARMIN_TOKENS if needed.")
+            else:
+                print("WARNING: GARMIN_TOKENS not set, skipping Garmin wellness.")
+            return {}
+
+        today  = datetime.date.today()
+        wellness = {}
+
+        print(f"Fetching Garmin wellness ({days} days)...")
+        for i in range(days):
+            d  = today - datetime.timedelta(days=i)
+            ds = d.isoformat()
+            day = {}
+
+            try:
+                hrv = client.get_hrv_data(ds)
+                if hrv and "hrvSummary" in hrv:
+                    v = hrv["hrvSummary"].get("lastNight")
+                    if v: day["hrv"] = v
+            except Exception:
+                pass
+
+            try:
+                sleep = client.get_sleep_data(ds)
+                if sleep and "dailySleepDTO" in sleep:
+                    s    = sleep["dailySleepDTO"]
+                    secs = s.get("sleepTimeSeconds")
+                    if secs: day["sleep_secs"] = secs
+                    score = ((s.get("sleepScores") or {}).get("overall") or {}).get("value")
+                    if score: day["sleep_score"] = score
+            except Exception:
+                pass
+
+            try:
+                rhr = client.get_resting_heart_rate(ds)
+                if rhr:
+                    metrics  = (rhr.get("allMetrics") or {}).get("metricsMap") or {}
+                    rhr_list = metrics.get("WELLNESS_RESTING_HEART_RATE") or []
+                    if rhr_list: day["resting_hr"] = rhr_list[0].get("value")
+            except Exception:
+                pass
+
+            try:
+                bb = client.get_body_battery(ds, ds)
+                if bb:
+                    charged = [x.get("charged", 0) for x in bb if x.get("charged")]
+                    if charged: day["body_battery"] = max(charged)
+            except Exception:
+                pass
+
+            try:
+                stress = client.get_stress_data(ds)
+                if stress:
+                    avg = stress.get("avgStressLevel") or stress.get("overallStressLevel")
+                    if avg and avg > 0: day["stress"] = avg
+            except Exception:
+                pass
+
+            try:
+                steps = client.get_steps_data(ds, ds)
+                if steps:
+                    total = sum(x.get("steps", 0) for x in steps)
+                    if total: day["steps"] = total
+            except Exception:
+                pass
+
+            if day:
+                wellness[ds] = day
+
+            time.sleep(0.25)
+
+        print(f"  {len(wellness)} days with wellness data")
+        return wellness
+    except Exception as e:
+        print(f"WARNING: Garmin skipped — {e}")
+        return {}
 
     print(f"Fetching Garmin wellness ({days} days)...")
     for i in range(days):
@@ -208,4 +328,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(1)
