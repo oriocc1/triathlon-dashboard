@@ -1,10 +1,15 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Syncs training data to data.json:
   - Activities  →  Strava API   (runs, rides, swims, etc.)
   - Wellness    →  Garmin Connect (HRV, sleep, body battery, stress, steps)
 """
-import os, json, base64, datetime, time, sys
+import os
+import sys
+import json
+import datetime
+import time
+from pathlib import Path
 
 try:
     import requests
@@ -28,16 +33,16 @@ def get_env(name):
 # ── Strava ────────────────────────────────────────────────────────────────────
 
 def fetch_strava_activities(days=90):
-    client_id     = get_env("STRAVA_CLIENT_ID")
+    client_id = get_env("STRAVA_CLIENT_ID")
     client_secret = get_env("STRAVA_CLIENT_SECRET")
     refresh_token = get_env("STRAVA_REFRESH_TOKEN")
 
     print("Refreshing Strava access token...")
     r = requests.post("https://www.strava.com/oauth/token", data={
-        "client_id":     client_id,
+        "client_id": client_id,
         "client_secret": client_secret,
         "refresh_token": refresh_token,
-        "grant_type":    "refresh_token",
+        "grant_type": "refresh_token",
     })
     r.raise_for_status()
     access_token = r.json()["access_token"]
@@ -69,10 +74,9 @@ def fetch_strava_activities(days=90):
     result = []
     for a in activities:
         duration = int(a.get("moving_time") or 0)
-        avg_hr   = a.get("average_heartrate") or 0
-        avg_w    = a.get("average_watts") or 0
+        avg_hr = a.get("average_heartrate") or 0
+        avg_w = a.get("average_watts") or 0
 
-        # TSS estimate (power > HR > duration fallback)
         if avg_w and duration:
             tss = (duration / 3600) * (avg_w / 200) * 100
         elif avg_hr > 60 and duration:
@@ -81,18 +85,18 @@ def fetch_strava_activities(days=90):
             tss = (duration / 3600) * 50
 
         result.append({
-            "name":                 a.get("name") or "Training",
-            "sport_type":           a.get("sport_type") or a.get("type") or "other",
-            "start_date_local":     (a.get("start_date_local") or "").rstrip("Z"),
-            "moving_time":          duration,
-            "distance":             a.get("distance") or 0,
+            "name": a.get("name") or "Training",
+            "sport_type": a.get("sport_type") or a.get("type") or "other",
+            "start_date_local": (a.get("start_date_local") or "").rstrip("Z"),
+            "moving_time": duration,
+            "distance": a.get("distance") or 0,
             "total_elevation_gain": a.get("total_elevation_gain") or 0,
-            "average_speed":        a.get("average_speed") or 0,
-            "calories":             a.get("calories") or 0,
-            "icu_training_load":    round(tss, 1),
-            "average_hr":           avg_hr,
-            "max_hr":               a.get("max_heartrate") or 0,
-            "pr_count":             a.get("pr_count") or 0,
+            "average_speed": a.get("average_speed") or 0,
+            "calories": a.get("calories") or 0,
+            "icu_training_load": round(tss, 1),
+            "average_hr": avg_hr,
+            "max_hr": a.get("max_heartrate") or 0,
+            "pr_count": a.get("pr_count") or 0,
         })
 
     result.sort(key=lambda x: x["start_date_local"])
@@ -101,37 +105,41 @@ def fetch_strava_activities(days=90):
 
 # ── Garmin (wellness only) ────────────────────────────────────────────────────
 
-def fetch_garmin_wellness(days=30):
+def init_garmin_api():
     try:
-        from garminconnect import Garmin
+        from garminconnect import (
+            Garmin,
+            GarminConnectAuthenticationError,
+            GarminConnectConnectionError,
+            GarminConnectTooManyRequestsError,
+        )
     except ImportError:
         print("WARNING: garminconnect not installed, skipping Garmin")
-        return {}
+        return None
 
-    tokens = os.environ.get("GARMIN_TOKENS", "").strip()
-    if not tokens:
-        print("WARNING: GARMIN_TOKENS not set, skipping Garmin wellness.")
-        return {}
+    tokenstore = os.getenv("GARMIN_TOKENS", "~/.garminconnect")
+    tokenstore_path = str(Path(tokenstore).expanduser())
 
-    token_payload = tokens
     try:
-        decoded = base64.b64decode(tokens.encode("utf-8"), validate=True).decode("utf-8")
-        if decoded and decoded[0] in "[{":
-            token_payload = decoded
-    except Exception:
-        # Not a base64-encoded token payload, use the raw value as path or token data.
-        pass
+        api = Garmin()
+        api.login(tokenstore_path)
+        print("Garmin: logged in using stored GARMIN_TOKENS")
+        return api
+    except GarminConnectTooManyRequestsError as err:
+        print(f"Rate limit: {err}")
+        return None
+    except (GarminConnectAuthenticationError, GarminConnectConnectionError) as err:
+        print("No valid tokens found — please regenerate GARMIN_TOKENS.")
+        print(f"Details: {err}")
+        return None
+    except Exception as err:
+        print(f"WARNING: Garmin wellness skipped — {err}")
+        return None
 
-    api = Garmin()
-    try:
-        api.login(token_payload)
-        print("Garmin: logged in via stored GARMIN_TOKENS")
-    except Exception as e:
-        print(
-            "WARNING: Garmin wellness skipped — failed to log in with GARMIN_TOKENS:",
-            e,
-            "Regenerate GARMIN_TOKENS if needed."
-        )
+
+def fetch_garmin_wellness(days=30):
+    api = init_garmin_api()
+    if api is None:
         return {}
 
     today = datetime.date.today()
@@ -218,11 +226,12 @@ def compute_fitness(activities, days=90):
     daily = {}
     for a in activities:
         d = (a.get("start_date_local") or "")[:10]
-        if d: daily[d] = daily.get(d, 0) + (a.get("icu_training_load") or 0)
+        if d:
+            daily[d] = daily.get(d, 0) + (a.get("icu_training_load") or 0)
 
     ctl, atl = 0.0, 0.0
     for i in range(days):
-        ds   = (today - datetime.timedelta(days=days - 1 - i)).isoformat()
+        ds = (today - datetime.timedelta(days=days - 1 - i)).isoformat()
         load = daily.get(ds, 0)
         ctl += (load - ctl) / 42
         atl += (load - atl) / 7
@@ -234,20 +243,16 @@ def compute_fitness(activities, days=90):
 
 def main():
     activities = fetch_strava_activities(days=90)
-    try:
-        wellness = fetch_garmin_wellness(days=30)
-    except Exception as e:
-        print(f"WARNING: Garmin skipped — {e}")
-        wellness = {}
-    fitness    = compute_fitness(activities)
+    wellness = fetch_garmin_wellness(days=30)
+    fitness = compute_fitness(activities)
 
     print(f"Fitness: CTL={fitness['ctl']}, ATL={fitness['atl']}, TSB={fitness['tsb']}")
 
     output = {
-        "synced_at":  datetime.datetime.utcnow().isoformat() + "Z",
+        "synced_at": datetime.datetime.utcnow().isoformat() + "Z",
         "activities": activities,
-        "wellness":   wellness,
-        "fitness":    fitness,
+        "wellness": wellness,
+        "fitness": fitness,
     }
 
     out_path = os.path.join(os.path.dirname(__file__), "..", "data.json")
