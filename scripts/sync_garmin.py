@@ -108,167 +108,97 @@ def fetch_garmin_wellness(days=30):
         print("WARNING: garminconnect not installed, skipping Garmin")
         return {}
 
-    try:
-        tokens = os.environ.get("GARMIN_TOKENS", "").strip()
-        client = None
-
-        if tokens:
-            try:
-                import garth
-            except ImportError:
-                print("WARNING: garth not installed, cannot restore GARMIN_TOKENS")
-                return {}
-
-            try:
-                token_payload = base64.b64decode(tokens.encode()).decode()
-                if not token_payload or token_payload.strip() in ('null', '[null, null]', '{}'):
-                    raise ValueError("Decoded token payload is empty or invalid")
-                client = garth.client.loads(token_payload)
-                if client is None:
-                    raise ValueError("garth.client.loads returned None")
-                print("Garmin: logged in via stored GARMIN_TOKENS")
-            except Exception as e:
-                print(
-                    "WARNING: GARMIN_TOKENS restore failed",
-                    f"({e}).",
-                    "Skipping Garmin wellness. Regenerate GARMIN_TOKENS if needed."
-                )
-                return {}
-
-        if client is None:
-            if tokens:
-                print("WARNING: GARMIN_TOKENS restore failed, skipping Garmin wellness. Regenerate GARMIN_TOKENS if needed.")
-            else:
-                print("WARNING: GARMIN_TOKENS not set, skipping Garmin wellness.")
-            return {}
-
-        today  = datetime.date.today()
-        wellness = {}
-
-        print(f"Fetching Garmin wellness ({days} days)...")
-        for i in range(days):
-            d  = today - datetime.timedelta(days=i)
-            ds = d.isoformat()
-            day = {}
-
-            try:
-                hrv = client.get_hrv_data(ds)
-                if hrv and "hrvSummary" in hrv:
-                    v = hrv["hrvSummary"].get("lastNight")
-                    if v: day["hrv"] = v
-            except Exception:
-                pass
-
-            try:
-                sleep = client.get_sleep_data(ds)
-                if sleep and "dailySleepDTO" in sleep:
-                    s    = sleep["dailySleepDTO"]
-                    secs = s.get("sleepTimeSeconds")
-                    if secs: day["sleep_secs"] = secs
-                    score = ((s.get("sleepScores") or {}).get("overall") or {}).get("value")
-                    if score: day["sleep_score"] = score
-            except Exception:
-                pass
-
-            try:
-                rhr = client.get_resting_heart_rate(ds)
-                if rhr:
-                    metrics  = (rhr.get("allMetrics") or {}).get("metricsMap") or {}
-                    rhr_list = metrics.get("WELLNESS_RESTING_HEART_RATE") or []
-                    if rhr_list: day["resting_hr"] = rhr_list[0].get("value")
-            except Exception:
-                pass
-
-            try:
-                bb = client.get_body_battery(ds, ds)
-                if bb:
-                    charged = [x.get("charged", 0) for x in bb if x.get("charged")]
-                    if charged: day["body_battery"] = max(charged)
-            except Exception:
-                pass
-
-            try:
-                stress = client.get_stress_data(ds)
-                if stress:
-                    avg = stress.get("avgStressLevel") or stress.get("overallStressLevel")
-                    if avg and avg > 0: day["stress"] = avg
-            except Exception:
-                pass
-
-            try:
-                steps = client.get_steps_data(ds, ds)
-                if steps:
-                    total = sum(x.get("steps", 0) for x in steps)
-                    if total: day["steps"] = total
-            except Exception:
-                pass
-
-            if day:
-                wellness[ds] = day
-
-            time.sleep(0.25)
-
-        print(f"  {len(wellness)} days with wellness data")
-        return wellness
-    except Exception as e:
-        print(f"WARNING: Garmin skipped — {e}")
+    tokens = os.environ.get("GARMIN_TOKENS", "").strip()
+    if not tokens:
+        print("WARNING: GARMIN_TOKENS not set, skipping Garmin wellness.")
         return {}
+
+    token_payload = tokens
+    try:
+        decoded = base64.b64decode(tokens.encode("utf-8"), validate=True).decode("utf-8")
+        if decoded and decoded[0] in "[{":
+            token_payload = decoded
+    except Exception:
+        # Not a base64-encoded token payload, use the raw value as path or token data.
+        pass
+
+    api = Garmin()
+    try:
+        api.login(token_payload)
+        print("Garmin: logged in via stored GARMIN_TOKENS")
+    except Exception as e:
+        print(
+            "WARNING: Garmin wellness skipped — failed to log in with GARMIN_TOKENS:",
+            e,
+            "Regenerate GARMIN_TOKENS if needed."
+        )
+        return {}
+
+    today = datetime.date.today()
+    wellness = {}
 
     print(f"Fetching Garmin wellness ({days} days)...")
     for i in range(days):
-        d  = today - datetime.timedelta(days=i)
+        d = today - datetime.timedelta(days=i)
         ds = d.isoformat()
         day = {}
 
         try:
-            hrv = client.get_hrv_data(ds)
+            hrv = api.get_hrv_data(ds)
             if hrv and "hrvSummary" in hrv:
                 v = hrv["hrvSummary"].get("lastNight")
-                if v: day["hrv"] = v
+                if v:
+                    day["hrv"] = v
         except Exception:
             pass
 
         try:
-            sleep = client.get_sleep_data(ds)
+            sleep = api.get_sleep_data(ds)
             if sleep and "dailySleepDTO" in sleep:
-                s    = sleep["dailySleepDTO"]
+                s = sleep["dailySleepDTO"]
                 secs = s.get("sleepTimeSeconds")
-                if secs: day["sleep_secs"] = secs
+                if secs:
+                    day["sleep_secs"] = secs
                 score = ((s.get("sleepScores") or {}).get("overall") or {}).get("value")
-                if score: day["sleep_score"] = score
+                if score:
+                    day["sleep_score"] = score
         except Exception:
             pass
 
         try:
-            rhr = client.get_resting_heart_rate(ds)
+            rhr = api.get_resting_heart_rate(ds)
             if rhr:
-                metrics  = (rhr.get("allMetrics") or {}).get("metricsMap") or {}
+                metrics = (rhr.get("allMetrics") or {}).get("metricsMap") or {}
                 rhr_list = metrics.get("WELLNESS_RESTING_HEART_RATE") or []
-                if rhr_list: day["resting_hr"] = rhr_list[0].get("value")
+                if rhr_list:
+                    day["resting_hr"] = rhr_list[0].get("value")
         except Exception:
             pass
 
         try:
-            bb = client.get_body_battery(ds, ds)
+            bb = api.get_body_battery(ds, ds)
             if bb:
                 charged = [x.get("charged", 0) for x in bb if x.get("charged")]
-                if charged: day["body_battery"] = max(charged)
+                if charged:
+                    day["body_battery"] = max(charged)
         except Exception:
             pass
 
         try:
-            stress = client.get_stress_data(ds)
+            stress = api.get_stress_data(ds)
             if stress:
                 avg = stress.get("avgStressLevel") or stress.get("overallStressLevel")
-                if avg and avg > 0: day["stress"] = avg
+                if avg and avg > 0:
+                    day["stress"] = avg
         except Exception:
             pass
 
         try:
-            steps = client.get_steps_data(ds, ds)
+            steps = api.get_steps_data(ds, ds)
             if steps:
                 total = sum(x.get("steps", 0) for x in steps)
-                if total: day["steps"] = total
+                if total:
+                    day["steps"] = total
         except Exception:
             pass
 
