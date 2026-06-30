@@ -26,13 +26,19 @@ client = Garmin(email=email, password=password)
 client.login()
 
 tokens = garth.client.dumps()
+
+# Validate tokens aren't empty/null
+if not tokens or tokens.strip() in ('null', '[null, null]', '{}', ''):
+    sys.exit(f"ERROR: Token dump is invalid: {tokens!r}\n"
+             "This usually means a 429 rate-limit blocked auth. Wait 15 min and retry.")
+
 b64 = base64.b64encode(tokens.encode()).decode()
 
 print("\n" + "=" * 64)
 print("SUCCESS!")
-print("Add this as the GARMIN_TOKENS secret in your GitHub repo:")
+print("Update the GARMIN_TOKENS secret in your GitHub repo:")
 print("  Repo → Settings → Secrets and variables → Actions")
-print("  → New repository secret → Name: GARMIN_TOKENS")
+print("  → Click GARMIN_TOKENS → Update secret")
 print("=" * 64)
 print(b64)
 print("=" * 64)

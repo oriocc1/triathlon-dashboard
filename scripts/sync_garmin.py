@@ -98,12 +98,8 @@ def garmin_login():
     tokens_b64 = os.environ.get("GARMIN_TOKENS", "")
     if tokens_b64:
         try:
-            import tempfile, tarfile, io
-            raw = base64.b64decode(tokens_b64)
-            with tempfile.TemporaryDirectory() as tmpdir:
-                with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as tar:
-                    tar.extractall(tmpdir)
-                garth.resume(tmpdir)
+            token_str = base64.b64decode(tokens_b64).decode()
+            garth.client.loads(token_str)
             client = Garmin()
             client.login()
             print("Garmin: authenticated via stored tokens")
