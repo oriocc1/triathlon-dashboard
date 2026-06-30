@@ -1,4 +1,4 @@
-name: Sync Garmin Data
+name: Sync Training Data
 
 on:
   schedule:
@@ -20,14 +20,18 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install garminconnect garth
+        run: pip install requests garminconnect garth
 
-      - name: Sync Garmin data
+      - name: Sync Strava activities + Garmin wellness
         env:
-          GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
-          # Fallback (only needed if tokens expire and you haven't refreshed them)
-          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
-          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          # Strava
+          STRAVA_CLIENT_ID:     ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+          # Garmin
+          GARMIN_TOKENS:        ${{ secrets.GARMIN_TOKENS }}
+          GARMIN_EMAIL:         ${{ secrets.GARMIN_EMAIL }}
+          GARMIN_PASSWORD:      ${{ secrets.GARMIN_PASSWORD }}
         run: python scripts/sync_garmin.py
 
       - name: Commit updated data.json
@@ -35,5 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
-          git diff --staged --quiet || git commit -m "chore: sync garmin data $(date -u +'%Y-%m-%dT%H:%M')"
+          git diff --staged --quiet || git commit -m "chore: sync $(date -u +'%Y-%m-%dT%H:%M')"
           git push
