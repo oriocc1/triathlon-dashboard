@@ -2,8 +2,8 @@ name: Sync Training Data
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # Every 6 hours
-  workflow_dispatch:          # Manual trigger from GitHub UI
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,7 +11,6 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -22,19 +21,17 @@ jobs:
       - name: Install dependencies
         run: pip install requests garminconnect garth
 
-      - name: Sync Strava activities + Garmin wellness
+      - name: Sync data
         env:
-          # Strava
-          STRAVA_CLIENT_ID:     ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-          # Garmin
-          GARMIN_TOKENS:        ${{ secrets.GARMIN_TOKENS }}
-          GARMIN_EMAIL:         ${{ secrets.GARMIN_EMAIL }}
-          GARMIN_PASSWORD:      ${{ secrets.GARMIN_PASSWORD }}
+          GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
+          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
         run: python scripts/sync_garmin.py
 
-      - name: Commit updated data.json
+      - name: Commit data.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
