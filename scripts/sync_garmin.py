@@ -218,7 +218,11 @@ def compute_fitness(activities, days=90):
 
 def main():
     activities = fetch_strava_activities(days=90)
-    wellness   = fetch_garmin_wellness(days=30)
+    try:
+        wellness = fetch_garmin_wellness(days=30)
+    except Exception as e:
+        print(f"WARNING: Garmin skipped — {e}")
+        wellness = {}
     fitness    = compute_fitness(activities)
 
     print(f"Fitness: CTL={fitness['ctl']}, ATL={fitness['atl']}, TSB={fitness['tsb']}")
