@@ -93,12 +93,17 @@ def garmin_login():
         import garth
         from garminconnect import Garmin
     except ImportError:
-        sys.exit("Run: pip install garminconnect garth")
+        raise RuntimeError("Run: pip install garminconnect garth")
 
     tokens_b64 = os.environ.get("GARMIN_TOKENS", "")
     if tokens_b64:
         try:
-            garth.resume(base64.b64decode(tokens_b64).decode())
+            import tempfile, tarfile, io
+            raw = base64.b64decode(tokens_b64)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as tar:
+                    tar.extractall(tmpdir)
+                garth.resume(tmpdir)
             client = Garmin()
             client.login()
             print("Garmin: authenticated via stored tokens")
@@ -109,7 +114,7 @@ def garmin_login():
     email    = os.environ.get("GARMIN_EMAIL", "")
     password = os.environ.get("GARMIN_PASSWORD", "")
     if not email:
-        sys.exit("Set GARMIN_TOKENS or GARMIN_EMAIL + GARMIN_PASSWORD")
+        raise RuntimeError("Garmin auth unavailable — set valid GARMIN_TOKENS or GARMIN_EMAIL + GARMIN_PASSWORD")
 
     from garminconnect import Garmin
     client = Garmin(email=email, password=password)
@@ -119,7 +124,11 @@ def garmin_login():
 
 
 def fetch_garmin_wellness(days=30):
-    client = garmin_login()
+    try:
+        client = garmin_login()
+    except Exception as e:
+        print(f"WARNING: Garmin skipped — {e}")
+        return {}
     today  = datetime.date.today()
     wellness = {}
 
