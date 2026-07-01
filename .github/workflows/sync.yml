@@ -34,6 +34,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp data.json /tmp/fresh_data.json
+          git checkout -- data.json
           git pull origin master
           cp /tmp/fresh_data.json data.json
           git add data.json
