@@ -4,14 +4,11 @@ Syncs training data to data.json:
   - Activities  →  Strava API   (runs, rides, swims, etc.)
   - Wellness    →  Garmin Connect (HRV, sleep, body battery, stress, steps)
 """
-import base64
 import os
 import sys
 import json
 import datetime
-import tempfile
 import time
-from pathlib import Path
 
 try:
     import requests
@@ -107,42 +104,12 @@ def fetch_strava_activities(days=90):
 
 # ── Garmin (wellness only) ────────────────────────────────────────────────────
 
-def _build_garmin_tokenstore_path():
-    token_env = os.getenv("GARMINTOKENS", os.getenv("GARMIN_TOKENS"))
-    default_store = Path("~/.garminconnect").expanduser()
-    if not token_env:
-        return default_store
-
-    token_path = Path(token_env).expanduser()
-    if token_path.exists():
-        return token_path
-
-    token_text = token_env.strip()
-    if not token_text:
-        return default_store
-
-    json_text = None
-    if token_text.startswith("{") or token_text.startswith("["):
-        json_text = token_text
-    else:
-        try:
-            raw = base64.b64decode(token_text, validate=True).decode("utf-8")
-            if raw.strip().startswith("{") or raw.strip().startswith("["):
-                json_text = raw
-        except Exception:
-            json_text = None
-
-    if json_text:
-        temp_dir = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
-        token_file = temp_dir / "garmin_tokens.json"
-        token_file.write_text(json_text, encoding="utf-8")
-        print(f"Garmin: decoded token store into {temp_dir}")
-        return temp_dir
-
-    return token_path
-
-
 def init_garmin_api():
+    token_b64 = os.getenv("GARMIN_TOKENS", "").strip()
+    if not token_b64:
+        print("No GARMIN_TOKENS secret set — skipping Garmin wellness")
+        return None
+
     try:
         from garminconnect import (
             Garmin,
@@ -154,19 +121,16 @@ def init_garmin_api():
         print("WARNING: garminconnect not installed, skipping Garmin")
         return None
 
-    tokenstore_path = _build_garmin_tokenstore_path()
-
     try:
         api = Garmin()
-        api.login(str(tokenstore_path))
-        print(f"Garmin: logged in using token store {tokenstore_path}")
+        api.login(tokenstore_base64=token_b64)
+        print("Garmin: logged in via GARMIN_TOKENS secret")
         return api
     except GarminConnectTooManyRequestsError as err:
         print(f"Garmin rate limit: {err}")
         return None
     except (GarminConnectAuthenticationError, GarminConnectConnectionError) as err:
-        print("No valid Garmin tokens found — please regenerate GARMINTOKENS or GARMIN_TOKENS.")
-        print(f"Details: {err}")
+        print(f"Garmin auth failed — token may be expired, re-run auth_garmin.py: {err}")
         return None
     except Exception as err:
         print(f"WARNING: Garmin wellness skipped — {err}")

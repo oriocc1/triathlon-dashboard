@@ -19,14 +19,13 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests garminconnect curl_cffi
+        run: pip install requests garminconnect
 
       - name: Sync data
         env:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-          GARMINTOKENS: ${{ secrets.GARMIN_TOKENS }}
           GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
         run: python scripts/sync_garmin.py
 
