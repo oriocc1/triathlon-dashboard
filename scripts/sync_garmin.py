@@ -159,8 +159,9 @@ def fetch_garmin_wellness(days=30):
 
         try:
             hrv = api.get_hrv_data(ds)
-            if hrv and "hrvSummary" in hrv:
-                v = hrv["hrvSummary"].get("lastNight")
+            if hrv:
+                summary = hrv.get("hrvSummary") or {}
+                v = summary.get("lastNight") or summary.get("weeklyAvg") or hrv.get("lastNight")
                 if v:
                     day["hrv"] = v
         except Exception:
@@ -180,12 +181,14 @@ def fetch_garmin_wellness(days=30):
             pass
 
         try:
-            rhr = api.get_resting_heart_rate(ds)
-            if rhr:
-                metrics = (rhr.get("allMetrics") or {}).get("metricsMap") or {}
-                rhr_list = metrics.get("WELLNESS_RESTING_HEART_RATE") or []
-                if rhr_list:
-                    day["resting_hr"] = rhr_list[0].get("value")
+            stats = api.get_stats(ds)
+            if stats:
+                rhr = stats.get("restingHeartRate")
+                if rhr:
+                    day["resting_hr"] = rhr
+                total_steps = stats.get("totalSteps")
+                if total_steps:
+                    day["steps"] = total_steps
         except Exception:
             pass
 
@@ -204,15 +207,6 @@ def fetch_garmin_wellness(days=30):
                 avg = stress.get("avgStressLevel") or stress.get("overallStressLevel")
                 if avg and avg > 0:
                     day["stress"] = avg
-        except Exception:
-            pass
-
-        try:
-            steps = api.get_steps_data(ds, ds)
-            if steps:
-                total = sum(x.get("steps", 0) for x in steps)
-                if total:
-                    day["steps"] = total
         except Exception:
             pass
 
