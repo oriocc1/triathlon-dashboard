@@ -211,6 +211,7 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
   <div class="hdr-btns">
     <span class="sync-status" id="sync-status"></span>
     <button class="btn btn-sync" id="sync-btn" onclick="handleSync()">⟳ Sync Data</button>
+    <button class="btn" id="reset-token-btn" title="Clear saved token and re-enter" onclick="resetToken()" style="display:none;padding:5px 8px;color:var(--muted);font-size:11px">✕ token</button>
     <button class="btn" id="refresh-btn" onclick="loadData()">Refresh</button>
   </div>
 </header>
@@ -845,6 +846,16 @@ const GH_OWNER = 'oribrunner';
 const GH_REPO  = 'triathlon-dashboard';
 const GH_WF    = 'sync.yml';
 
+function updateResetBtn(){
+  const has=!!localStorage.getItem('gh_sync_token');
+  $('reset-token-btn').style.display=has?'':'none';
+}
+function resetToken(){
+  localStorage.removeItem('gh_sync_token');
+  updateResetBtn();
+  $('sync-status').textContent='Token cleared';
+  setTimeout(()=>{$('sync-status').textContent='';openTokenModal();},800);
+}
 function handleSync(){
   const token = localStorage.getItem('gh_sync_token');
   if(token) triggerSync(token);
@@ -863,6 +874,7 @@ function saveTokenAndSync(){
   const t=$('token-input').value.trim();
   if(!t)return;
   localStorage.setItem('gh_sync_token',t);
+  updateResetBtn();
   closeTokenModal();
   triggerSync(t);
 }
@@ -898,9 +910,10 @@ async function triggerSync(token){
   }
 }
 
-// Close modal on overlay click
+// Close modal on overlay click or Escape
 document.addEventListener('click',e=>{if(e.target.id==='token-modal')closeTokenModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTokenModal()});
+updateResetBtn();
 
 // ── Main load ──────────────────────────────────────────────────────────────────
 async function loadData(){
