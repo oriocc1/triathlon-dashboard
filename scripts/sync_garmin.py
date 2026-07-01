@@ -123,14 +123,17 @@ def init_garmin_api():
         return None
 
     try:
+        json_text = base64.b64decode(token_b64).decode("utf-8")
         api = Garmin()
         try:
-            # Newer garminconnect (>=0.2.4)
             api.login(tokenstore_base64=token_b64)
         except TypeError:
-            # Older garminconnect: load token JSON directly into garth client
-            json_text = base64.b64decode(token_b64).decode("utf-8")
-            api.garth.loads(json_text)
+            if hasattr(api, "garth"):
+                api.garth.loads(json_text)
+            else:
+                import garth as garth_mod
+                garth_mod.client.loads(json_text)
+                api.garth = garth_mod.client
         print("Garmin: logged in via GARMIN_TOKENS secret")
         return api
     except GarminConnectTooManyRequestsError as err:
