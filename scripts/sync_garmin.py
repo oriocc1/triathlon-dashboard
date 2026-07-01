@@ -105,6 +105,7 @@ def fetch_strava_activities(days=90):
 # ── Garmin (wellness only) ────────────────────────────────────────────────────
 
 def init_garmin_api():
+    import base64
     token_b64 = os.getenv("GARMIN_TOKENS", "").strip()
     if not token_b64:
         print("No GARMIN_TOKENS secret set — skipping Garmin wellness")
@@ -123,7 +124,13 @@ def init_garmin_api():
 
     try:
         api = Garmin()
-        api.login(tokenstore_base64=token_b64)
+        try:
+            # Newer garminconnect (>=0.2.4)
+            api.login(tokenstore_base64=token_b64)
+        except TypeError:
+            # Older garminconnect: load token JSON directly into garth client
+            json_text = base64.b64decode(token_b64).decode("utf-8")
+            api.garth.loads(json_text)
         print("Garmin: logged in via GARMIN_TOKENS secret")
         return api
     except GarminConnectTooManyRequestsError as err:
