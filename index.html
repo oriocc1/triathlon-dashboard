@@ -314,8 +314,8 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
 <div class="modal-overlay" id="token-modal">
   <div class="modal">
     <h3>GitHub Personal Access Token</h3>
-    <p>Paste a GitHub <strong>classic</strong> Personal Access Token with <strong>repo</strong> scope ticked. Stored only in your browser — only ever sent to the GitHub API.<br><br>
-    <a href="https://github.com/settings/tokens/new?scopes=repo&description=triathlon-dashboard-sync" target="_blank">Generate a classic token with repo scope &rarr;</a></p>
+    <p>Paste a GitHub <strong>classic</strong> Personal Access Token with <strong>workflow</strong> scope ticked. Stored only in your browser — only ever sent to the GitHub API.<br><br>
+    <a href="https://github.com/settings/tokens/new?scopes=workflow&description=triathlon-dashboard-sync" target="_blank">Generate a token with workflow scope &rarr;</a></p>
     <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
     <div class="modal-btns">
       <button class="btn" onclick="closeTokenModal()">Cancel</button>
@@ -1095,8 +1095,13 @@ async function triggerSync(token){
   btn.disabled=true;btn.classList.add('syncing');status.textContent='Triggering…';
   try{
     const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WF}/dispatches`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:'master'})});
-    if(r.status===204||r.ok){status.textContent='✓ Sync running (~2 min)';setTimeout(()=>{status.textContent=''},8000)}
-    else if(r.status===401||r.status===403){localStorage.removeItem('gh_sync_token');status.textContent='✗ Token needs repo scope';setTimeout(()=>{status.textContent='';openTokenModal()},2000)}
+    if(r.status===204||r.ok){
+      // Poll for workflow completion then auto-reload
+      let secs=120;
+      const tick=()=>{status.textContent=`Syncing… ${secs}s`;if(secs>0){secs--;setTimeout(tick,1000)}else{status.textContent='Reloading…';loadData().then(()=>{status.textContent='✓ Done';setTimeout(()=>status.textContent='',4000)})}};
+      tick();
+    }
+    else if(r.status===401||r.status===403){localStorage.removeItem('gh_sync_token');status.textContent='✗ Token needs workflow scope';setTimeout(()=>{status.textContent='';openTokenModal()},2000)}
     else{const body=await r.json().catch(()=>({}));status.textContent=`✗ ${body.message||r.status}`;setTimeout(()=>status.textContent='',5000)}
   }catch(e){status.textContent='✗ Network error';setTimeout(()=>status.textContent='',5000)}
   finally{btn.disabled=false;btn.classList.remove('syncing')}
