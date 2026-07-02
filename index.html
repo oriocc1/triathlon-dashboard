@@ -823,7 +823,7 @@ function renderS2(weeks,weekKeys,fitness){
     {day:'Sun',desc:`Long run — target ${blk.longRunKm}km`},
   ]:[{day:'All',desc:'Easy aerobic activity only. Keep HR low.'}];
   const planHtml=`<div class="plan-grid">${planRows.map(r=>`<div class="plan-row"><span class="plan-day">${r.day}</span><span>${esc(r.desc)}</span></div>`).join('')}</div>`;
-  items.push({cat:'This Week Session Plan',body:blk?`Based on your current <em>${esc(blk.name)}</em> block:`:'',extra:planHtml});
+  items.push({cat:'This Week Session Plan',body:blk?`<span style="color:var(--muted);font-size:12px;display:block;margin-bottom:6px">Example only — not a finalised plan. Adjust based on how you feel, what's already done this week, and any schedule constraints.</span>Based on your current <em>${esc(blk.name)}</em> block:`:'',extra:planHtml});
 
   // 3 — Recovery / load note
   let note;
