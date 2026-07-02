@@ -51,4 +51,16 @@ The pattern is clear: the run saved him (div rank 67), the bike hurt him (div ra
 - Protect the run — flag if cumulative load is compromising run quality
 - Flag recovery needs if load is clearly accumulating without adequate rest
 
+**How training affects me — fatigue guide for session sequencing**
+Use this when reading my Strava data to anticipate how I'll likely feel going into each session:
+
+- Swim — minimal residual fatigue, essentially zero leg stress. Has no meaningful impact on what follows.
+- Easy or flat bike — low fatigue, recover well overnight. Fine before or after most sessions.
+- Easy long run (Sunday) — manageable load, not much stress. Legs are fine after a night's sleep and a Monday rest day.
+- Gym/S&C — significant leg fatigue. The strength work (squats, lunges, calf raises) creates real muscular stress — comparable to a moderate bike session, less than a full tempo run. Don't stack a quality run or hard bike within 24 hours of a gym session.
+- High-elevation or long outdoor ride — meaningful leg fatigue, particularly above ~800m gain or 3+ hours. Legs will feel heavy the next day. Account for this when suggesting follow-on sessions.
+- Tempo runs or hard run intervals — highest muscular stress of any session. Treat the following day as needing easy effort or rest. Never stack hard sessions back-to-back around a tempo run.
+
+In short: swim and easy sessions are close to free; gym carries moderate-to-significant leg cost; tempo runs and big elevation rides carry the highest fatigue. If the data shows a hard bike Saturday into a tempo Monday, flag it.
+
 Note: transition times suggest there's meaningful free time available there before any marginal swim gains kick in.
