@@ -311,6 +311,19 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
   </div>
 </div>
 
+<div class="modal-overlay" id="api-key-modal">
+  <div class="modal">
+    <h3>Anthropic API Key</h3>
+    <p>Paste your Anthropic API key to power the Training Coach. Stored only in your browser — never sent anywhere except the Anthropic API.<br><br>
+    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get an API key from console.anthropic.com &rarr;</a></p>
+    <input type="password" id="api-key-input" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    <div class="modal-btns">
+      <button class="btn" onclick="closeApiKeyModal()">Cancel</button>
+      <button class="btn btn-sync" onclick="saveApiKeyAndAsk()">Save &amp; Ask</button>
+    </div>
+  </div>
+</div>
+
 <div class="coach-overlay" id="coach-overlay" onclick="closeCoach()"></div>
 <aside class="coach" id="coach" aria-hidden="true">
   <div class="coach-hdr">
@@ -952,10 +965,17 @@ function coachFallback(){
   return `The live coach runs on Claude inside the preview environment. On your deployed GitHub Pages site you'd wire it to an API key to make it answer freely.\n\nFrom your current data: readiness ${s.score??'—'}/100 (${s.verdict||'—'}), form/TSB ${s.tsb!=null?(s.tsb>0?'+':'')+s.tsb:'—'}. ${advice}`;
 }
 
+let COACH_PENDING_Q='';
+function openApiKeyModal(){$('api-key-modal').classList.add('open');setTimeout(()=>$('api-key-input').focus(),50)}
+function closeApiKeyModal(){$('api-key-modal').classList.remove('open');$('api-key-input').value=''}
+function saveApiKeyAndAsk(){const k=$('api-key-input').value.trim();if(!k)return;localStorage.setItem('anthropic_key',k);closeApiKeyModal();if(COACH_PENDING_Q){const q=COACH_PENDING_Q;COACH_PENDING_Q='';coachAsk(q)}}
+
 async function coachAsk(preset){
   const inp=$('coach-in');
   const text=(preset||inp.value||'').trim();
   if(!text)return;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){COACH_PENDING_Q=text;inp.value='';openApiKeyModal();return;}
   inp.value='';
   const intro=$('coach-intro'),chips=$('coach-chips');
   if(intro)intro.style.display='none';
@@ -965,14 +985,21 @@ async function coachAsk(preset){
   const think=addMsg('a','Thinking…','think');
   $('coach-send').disabled=true;
   try{
-    if(!(window.claude&&window.claude.complete))throw new Error('no-api');
-    const reply=await window.claude.complete({model:'claude-sonnet-4-5',max_tokens:700,system:COACH_SYS+'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX,messages:COACH_HIST});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:COACH_SYS+'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX,messages:COACH_HIST})
+    });
+    if(resp.status===401||resp.status===403){localStorage.removeItem('anthropic_key');think.remove();COACH_HIST.pop();COACH_PENDING_Q=text;$('coach-send').disabled=false;openApiKeyModal();return;}
+    if(!resp.ok)throw new Error(`API ${resp.status}`);
+    const data=await resp.json();
+    const reply=data.content[0].text;
     think.remove();
     addMsg('a',reply);
     COACH_HIST.push({role:'assistant',content:reply});
   }catch(err){
     think.remove();
-    addMsg('a',coachFallback());
+    addMsg('a',`Error: ${err.message}`);
   }finally{
     $('coach-send').disabled=false;scrollCoach();
   }
@@ -995,8 +1022,8 @@ async function triggerSync(token){
   }catch(e){status.textContent='✗ Network error';setTimeout(()=>status.textContent='',5000)}
   finally{btn.disabled=false;btn.classList.remove('syncing')}
 }
-document.addEventListener('click',e=>{if(e.target.id==='token-modal')closeTokenModal()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeTokenModal();closeCoach()}});
+document.addEventListener('click',e=>{if(e.target.id==='token-modal')closeTokenModal();if(e.target.id==='api-key-modal')closeApiKeyModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeTokenModal();closeApiKeyModal();closeCoach()}});
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 async function loadData(){
