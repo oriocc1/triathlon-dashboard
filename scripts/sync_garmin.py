@@ -195,9 +195,14 @@ def fetch_garmin_wellness(days=30):
         try:
             bb = api.get_body_battery(ds, ds)
             if bb:
-                charged = [x.get("charged", 0) for x in bb if x.get("charged")]
-                if charged:
-                    day["body_battery"] = max(charged)
+                level = None
+                for entry in reversed(bb):
+                    v = entry.get("bodyBatteryMostRecentValue") or entry.get("endBodyBatteryLevel")
+                    if v is not None and v > 0:
+                        level = v
+                        break
+                if level:
+                    day["body_battery"] = level
         except Exception:
             pass
 
