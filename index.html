@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Triathlon Dashboard — Ori</title>
+<title>Training Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -465,19 +465,30 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
 <script>
 'use strict';
 
-const REMOTE = 'https://oribrunner.github.io/triathlon-dashboard/data.json';
-const RACE1  = '2026-09-06';
-const RACE2  = '2026-10-17';
-const BLOCKS = [
-  {name:'Base',          start:'2026-04-01',end:'2026-06-02',longRideKm:60, longRunKm:12, swims:1,sc:false,zwift:false,brick:false},
-  {name:'Foundation',    start:'2026-06-03',end:'2026-06-28',longRideKm:70, longRunKm:15, swims:1,sc:true, zwift:true, brick:false},
-  {name:'Build',         start:'2026-06-29',end:'2026-07-26',longRideKm:90, longRunKm:15, swims:1,sc:false,zwift:true, brick:true },
-  {name:'Race-specific', start:'2026-07-27',end:'2026-08-22',longRideKm:90, longRunKm:14, swims:1,sc:false,zwift:true, brick:true },
-  {name:'Taper – Race 1',start:'2026-08-23',end:'2026-09-05',longRideKm:0,  longRunKm:0,  swims:0,sc:false,zwift:false,brick:false},
-  {name:'Recovery',      start:'2026-09-07',end:'2026-09-13',longRideKm:0,  longRunKm:0,  swims:0,sc:false,zwift:false,brick:false},
-  {name:'Maintenance',   start:'2026-09-14',end:'2026-10-04',longRideKm:50, longRunKm:12, swims:1,sc:false,zwift:true, brick:false},
-  {name:'Taper – Race 2',start:'2026-10-05',end:'2026-10-16',longRideKm:0,  longRunKm:0,  swims:0,sc:false,zwift:false,brick:false},
-];
+let CFG={};
+let ATHLETE_NAME='Athlete';
+let REMOTE='';
+let RACE1='',RACE2='';
+let BLOCKS=[];
+async function initConfig(){
+  try{
+    const r=await fetch('./config.json?t='+Date.now());
+    if(r.ok){
+      CFG=await r.json();
+      const a=CFG.athlete||{};
+      ATHLETE_NAME=a.name||'Athlete';
+      const g=CFG.github||{};
+      const owner=g.owner||'';
+      const repo=g.repo||'dashboard';
+      REMOTE=`https://${owner}.github.io/${repo}/data.json`;
+      const races=CFG.races||[];
+      RACE1=(races[0]||{}).date||'';
+      RACE2=(races[1]||{}).date||'';
+      BLOCKS=(CFG.blocks||[]).map(b=>({...b}));
+      document.title=`Training Dashboard — ${ATHLETE_NAME}`;
+    }
+  }catch(_){}
+}
 
 const SPORT_COL={swim:'#5fb4e6',bike:'#e0b050',run:'#f0837f',other:'#b49ce0'};
 
@@ -996,15 +1007,19 @@ function toggleSess(idx,e){e.stopPropagation();const el=$(`wcsl${idx}`),tg=e.cur
 
 // ── Coach ──────────────────────────────────────────────────────────────────────
 let COACH_HIST=[],COACH_CTX='',COACH_SUM={score:null,verdict:'',tsb:null};
-const COACH_SYS=`You are an experienced, level-headed triathlon coach embedded in Ori's personal training dashboard. You have Ori's live Garmin + Intervals.icu data in the DATA block below — use the real numbers.
+function getCoachSys(){
+  const name=ATHLETE_NAME;
+  const sport=(CFG.athlete||{}).sport||'triathlon';
+  return `You are an experienced, level-headed ${sport} coach embedded in ${name}'s personal training dashboard. You have ${name}'s live Garmin + Strava data in the DATA block below — use the real numbers.
 
 Glossary: CTL = fitness (42-day load), ATL = fatigue (7-day load), TSB/Form = CTL − ATL (positive = fresh, negative = fatigued). HRV compared to its 14-day baseline reflects recovery.
 
 Rules:
 - Be concise: under ~150 words, plain sentences, no markdown headings or bullet spam.
-- Reference Ori's actual numbers when relevant.
+- Reference ${name}'s actual numbers when relevant.
 - For "am I ready" questions, give a clear GREEN / AMBER / RED verdict, one line of reasoning weighing form, HRV vs baseline, sleep, energy and recent load, then a concrete suggestion (session type, intensity, or rest).
 - Never invent data you weren't given. If something isn't in the data, say so.`;
+}
 
 function buildCoachContext(well,fit,weeks,weekKeys,acts){
   const td=today(),curMon=weekMon(td),w=well[td]||{};
@@ -1015,7 +1030,7 @@ function buildCoachContext(well,fit,weeks,weekKeys,acts){
   const r=computeReadiness(w,fit,hrvAvg,todayTss);
   const blk=getBlock(curMon);
   const L=[];
-  L.push(`Today: ${td}. Athlete: Ori, age-group triathlete.`);
+  L.push(`Today: ${td}. Athlete: ${ATHLETE_NAME}, ${(CFG.athlete||{}).sport||'triathlon'} athlete.`);
   if(blk)L.push(`Current block: ${blk.name} (long-ride target ${blk.longRideKm}km, long-run target ${blk.longRunKm}km).`);
   const cd=raceCD(curMon).replace(/<[^>]+>/g,'');
   L.push(`Races: Race 1 ${RACE1}, Race 2 ${RACE2}.${cd?' '+cd+'.':''}`);
@@ -1107,8 +1122,8 @@ async function coachAsk(preset){
       method:'POST',
       headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-beta':'prompt-caching-2024-07-31','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,system:[
-        {type:'text',text:customPrompt||COACH_SYS,cache_control:{type:'ephemeral'}},
-        {type:'text',text:'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX}
+        {type:'text',text:customPrompt||getCoachSys(),cache_control:{type:'ephemeral'}},
+        {type:'text',text:`\n\n=== ${ATHLETE_NAME.toUpperCase()}'S CURRENT DATA ===\n`+COACH_CTX}
       ],messages:COACH_HIST})
     });
     if(resp.status===401||resp.status===403){localStorage.removeItem('anthropic_key');think.remove();COACH_HIST.pop();COACH_PENDING_Q=text;$('coach-send').disabled=false;openApiKeyModal();return;}
@@ -1127,7 +1142,9 @@ async function coachAsk(preset){
 }
 
 // ── Sync ───────────────────────────────────────────────────────────────────────
-const GH_OWNER='oribrunner',GH_REPO='triathlon-dashboard',GH_WF='sync.yml';
+const GH_WF='sync.yml';
+function ghOwner(){return(CFG.github||{}).owner||''}
+function ghRepo(){return(CFG.github||{}).repo||'dashboard'}
 function handleSync(){const token=localStorage.getItem('gh_sync_token');if(token)triggerSync(token);else openTokenModal()}
 function openTokenModal(){$('token-modal').classList.add('open');setTimeout(()=>$('token-input').focus(),50)}
 function closeTokenModal(){$('token-modal').classList.remove('open');$('token-input').value=''}
@@ -1136,7 +1153,7 @@ async function triggerSync(token){
   const btn=$('sync-btn'),status=$('sync-status');
   btn.disabled=true;btn.classList.add('syncing');status.textContent='Triggering…';
   try{
-    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WF}/dispatches`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:'master'})});
+    const r=await fetch(`https://api.github.com/repos/${ghOwner()}/${ghRepo()}/actions/workflows/${GH_WF}/dispatches`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:'master'})});
     if(r.status===204||r.ok){
       // Poll for workflow completion then auto-reload
       let secs=120;
@@ -1190,14 +1207,14 @@ async function loadData(){
     buildCoachContext(well,fit,weeks,weekKeys,acts);
 
     const ts=syncedAt?new Date(syncedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'never';
-    $('last-updated').textContent=`Ori · Synced ${ts}${src!=='./data.json'?' (remote)':''}`;
+    $('last-updated').textContent=`${ATHLETE_NAME} · Synced ${ts}${src!=='./data.json'?' (remote)':''}`;
 
     if(location.search.includes('debug=1')){$('dbg').style.display='';$('dbg-out').textContent=JSON.stringify({src,activities:acts.length,wellnessDays:Object.keys(well).length,fitness:fit,syncedAt},null,2)}
 
   }catch(err){const b=$('b-err');b.textContent='Error: '+err.message;b.classList.add('show');$('main').style.display='block'}
   finally{$('loading').style.display='none';$('refresh-btn').disabled=false}
 }
-loadData();
+initConfig().then(()=>loadData());
 </script>
 </body>
 </html>

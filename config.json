@@ -1,0 +1,31 @@
+{
+  "athlete": {
+    "name": "Ori",
+    "age": 25,
+    "location": "London, UK",
+    "sport": "triathlon",
+    "ftp": 198,
+    "threshold_pace": "4:20/km",
+    "weekly_hours": "7-9",
+    "work_hours": "55-65",
+    "weakest_discipline": "bike"
+  },
+  "github": {
+    "owner": "oribrunner",
+    "repo": "triathlon-dashboard"
+  },
+  "races": [
+    { "name": "70.3 Knokke-Heist", "date": "2026-09-06", "priority": "A" },
+    { "name": "70.3 Cascais",      "date": "2026-10-17", "priority": "A" }
+  ],
+  "blocks": [
+    { "name": "Base",          "start": "2026-04-01", "end": "2026-06-02", "longRideKm": 60, "longRunKm": 12, "swims": 1, "sc": false, "zwift": false, "brick": false },
+    { "name": "Foundation",    "start": "2026-06-03", "end": "2026-06-28", "longRideKm": 70, "longRunKm": 15, "swims": 1, "sc": true,  "zwift": true,  "brick": false },
+    { "name": "Build",         "start": "2026-06-29", "end": "2026-07-26", "longRideKm": 90, "longRunKm": 15, "swims": 1, "sc": false, "zwift": true,  "brick": true  },
+    { "name": "Race-specific", "start": "2026-07-27", "end": "2026-08-22", "longRideKm": 90, "longRunKm": 14, "swims": 1, "sc": false, "zwift": true,  "brick": true  },
+    { "name": "Taper - Race 1","start": "2026-08-23", "end": "2026-09-05", "longRideKm": 0,  "longRunKm": 0,  "swims": 0, "sc": false, "zwift": false, "brick": false },
+    { "name": "Recovery",      "start": "2026-09-07", "end": "2026-09-13", "longRideKm": 0,  "longRunKm": 0,  "swims": 0, "sc": false, "zwift": false, "brick": false },
+    { "name": "Maintenance",   "start": "2026-09-14", "end": "2026-10-04", "longRideKm": 50, "longRunKm": 12, "swims": 1, "sc": false, "zwift": true,  "brick": false },
+    { "name": "Taper - Race 2","start": "2026-10-05", "end": "2026-10-16", "longRideKm": 0,  "longRunKm": 0,  "swims": 0, "sc": false, "zwift": false, "brick": false }
+  ]
+}
