@@ -700,6 +700,12 @@ function drawSpark(id,col,data,labelFn){
   const el=$(id);if(!el)return;
   new Chart(el,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:col,backgroundColor:col+'20',tension:.35,pointRadius:0,pointHoverRadius:4,borderWidth:2,fill:false,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8,bottom:8,left:2,right:2}},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}})
 }
+function drawBodyBatterySpark(id,col,data,minD,maxD){
+  const el=$(id);if(!el)return;
+  const hasRange=minD.some(v=>v!=null)&&maxD.some(v=>v!=null);
+  if(!hasRange){drawSpark(id,col,data,v=>v!=null?Math.round(v):null);return}
+  new Chart(el,{type:'bar',data:{labels:data.map((_,i)=>i),datasets:[{data:data.map((_,i)=>minD[i]!=null&&maxD[i]!=null?[minD[i],maxD[i]]:null),backgroundColor:col+'44',borderColor:col,borderWidth:1,borderRadius:2,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8,bottom:8,left:2,right:2}},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,min:0,max:100}}}})
+}
 
 // ── Section 1 ─────────────────────────────────────────────────────────────────
 function renderS1(wellness,fitness,acts){
@@ -712,7 +718,7 @@ function renderS1(wellness,fitness,acts){
 
   const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toISOString().slice(0,10)});
   const g=key=>days14.map(d=>(wellness[d]||{})[key]??null);
-  const hrvD=g('hrv'),bbD=g('body_battery'),stD=g('stress');
+  const hrvD=g('hrv'),bbD=g('body_battery'),bbMinD=g('body_battery_min'),bbMaxD=g('body_battery_max'),stD=g('stress');
   const slhD=days14.map(d=>{const s=(wellness[d]||{}).sleep_secs;return s!=null?s/3600:null});
   const slsD=g('sleep_score');
   const hrvValid=hrvD.filter(v=>v!=null);
@@ -746,7 +752,7 @@ function renderS1(wellness,fitness,acts){
 
   setTimeout(()=>{
     drawSpark('sp-hrv','#5fb4e6',hrvD,v=>v!=null?Math.round(v):null);
-    drawSpark('sp-bb','#e0b050',bbD,v=>v!=null?Math.round(v):null);
+    drawBodyBatterySpark('sp-bb','#e0b050',bbD,bbMinD,bbMaxD);
     drawSpark('sp-str','#f0837f',stD,v=>v!=null?Math.round(v):null);
     drawSpark('sp-slh','#b49ce0',slhD,v=>v!=null?v.toFixed(1):null);
     drawSpark('sp-sls','#c9a2ec',slsD,v=>v!=null?Math.round(v):null);
