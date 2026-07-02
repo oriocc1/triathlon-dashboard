@@ -83,6 +83,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-u
 .rd-bar-lbl{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .rd-bar-track{height:4px;border-radius:3px;background:var(--bg4);overflow:hidden}
 .rd-bar-fill{display:block;height:100%;border-radius:3px}
+.rd-today-note{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
 @media(max-width:640px){.rd-panel{flex-direction:column;align-items:flex-start;gap:18px}}
 
 /* ── Metric cards ── */
@@ -562,7 +563,7 @@ function computeFitHist(acts){
 
 // ── Readiness ──────────────────────────────────────────────────────────────────
 function clamp100(x){return Math.max(0,Math.min(100,x))}
-function computeReadiness(w,fit,hrvAvg){
+function computeReadiness(w,fit,hrvAvg,todayTss){
   const parts=[];
   const add=(key,comp,wt,good,bad)=>parts.push({key,comp:clamp100(comp),wt,good,bad});
   if(w.sleep_score!=null) add('Sleep',w.sleep_score,.22,'sleep quality is strong','sleep quality was low');
@@ -572,14 +573,18 @@ function computeReadiness(w,fit,hrvAvg){
   if(fit.tsb!=null) add('Form',72+fit.tsb*1.5,.30,"you're fresh and rested",'acute fatigue is high — load is outrunning recovery');
   if(!parts.length)return null;
   const tw=parts.reduce((s,p)=>s+p.wt,0);
-  const score=Math.round(parts.reduce((s,p)=>s+p.comp*p.wt,0)/tw);
-  return{score,parts}
+  const baseScore=Math.round(parts.reduce((s,p)=>s+p.comp*p.wt,0)/tw);
+  const penalty=Math.min(30,Math.round((todayTss||0)*0.15));
+  const score=Math.max(0,baseScore-penalty);
+  return{score,baseScore,parts,penalty}
 }
 
-function renderReadiness(w,fit,hrvAvg){
-  const r=computeReadiness(w,fit,hrvAvg);
+function renderReadiness(w,fit,hrvAvg,todayActs){
+  todayActs=todayActs||[];
+  const todayTss=todayActs.reduce((s,a)=>s+(a.icu_training_load||0),0);
+  const r=computeReadiness(w,fit,hrvAvg,todayTss);
   if(!r){$('readiness').innerHTML='';return}
-  const{score,parts}=r;
+  const{score,baseScore,parts,penalty}=r;
   let verdict,col,action;
   if(score>=82){verdict='Primed';col='var(--green)';action="Green light — your body is ready for a race or a peak session. Make it count.";}
   else if(score>=68){verdict='Ready to train';col='var(--green)';action="Green light for today's key session — just avoid stacking two hard days.";}
@@ -606,6 +611,7 @@ function renderReadiness(w,fit,hrvAvg){
       <div class="rd-top"><span class="rd-lbl">Training Readiness${INFO('Readiness')}</span><span class="rd-verdict" style="color:${col}">${verdict}</span></div>
       <div class="rd-body">${esc(body)}</div>
       <div class="rd-bars">${parts.map(p=>`<div class="rd-bar"><span class="rd-bar-lbl">${esc(p.key)}</span><span class="rd-bar-track"><span class="rd-bar-fill" style="width:${p.comp}%;background:${barCol(p.comp)}"></span></span></div>`).join('')}</div>
+      ${penalty>0?`<div class="rd-today-note">${[...new Set(todayActs.map(a=>spt(a)))].join(', ')} today (TSS ${Math.round(todayTss)}) — adjusted from ${baseScore} → ${score}</div>`:''}
     </div>
   </div>`;
 }
@@ -619,7 +625,7 @@ const DEFS={
   'Body Battery':"Garmin's 0–100 estimate of your energy reserves, built from HRV, stress, sleep and activity.",
   'Sleep Score':"Garmin's 0–100 rating of last night's sleep quality and duration.",
   Stress:"Garmin's 0–100 all-day stress estimate from HRV. Lower is calmer and better recovered.",
-  Readiness:'A composite 0–100 score blending your form (TSB), morning HRV vs baseline, sleep, energy and stress into one training-readiness verdict.',
+  Readiness:'A composite 0–100 score blending your form (TSB), morning HRV vs baseline, sleep, energy and stress. Adjusted downward in real time as sessions are completed today.',
 };
 function INFO(key){const t=DEFS[key];if(!t)return'';return `<span class="info" tabindex="0">i<span class="info-pop">${esc(t)}</span></span>`}
 
@@ -696,7 +702,7 @@ function drawSpark(id,col,data,labelFn){
 }
 
 // ── Section 1 ─────────────────────────────────────────────────────────────────
-function renderS1(wellness,fitness){
+function renderS1(wellness,fitness,acts){
   const td=today(),w=wellness[td]||{};
   const{ctl,atl,tsb}=fitness;
   const formCls=tsb==null?'c-muted':tsb>10?'c-pos':tsb>0?'c-ctl':tsb>-10?'c-warn':'c-neg';
@@ -712,7 +718,8 @@ function renderS1(wellness,fitness){
   const hrvValid=hrvD.filter(v=>v!=null);
   const hrvAvg=hrvValid.length?hrvValid.reduce((s,v)=>s+v,0)/hrvValid.length:null;
 
-  renderReadiness(w,fitness,hrvAvg);
+  const todayActs=(acts||[]).filter(a=>(a.start_date_local||'').slice(0,10)===td);
+  renderReadiness(w,fitness,hrvAvg,todayActs);
 
   $('mc-cards').innerHTML=[
     mcCard('CTL',ctl!=null?Math.round(ctl):null,'fitness','c-ctl','','CTL'),
@@ -957,12 +964,13 @@ Rules:
 - For "am I ready" questions, give a clear GREEN / AMBER / RED verdict, one line of reasoning weighing form, HRV vs baseline, sleep, energy and recent load, then a concrete suggestion (session type, intensity, or rest).
 - Never invent data you weren't given. If something isn't in the data, say so.`;
 
-function buildCoachContext(well,fit,weeks,weekKeys){
+function buildCoachContext(well,fit,weeks,weekKeys,acts){
   const td=today(),curMon=weekMon(td),w=well[td]||{};
   const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toISOString().slice(0,10)});
   const hv=days14.map(d=>(well[d]||{}).hrv).filter(x=>x!=null);
   const hrvAvg=hv.length?Math.round(hv.reduce((s,x)=>s+x,0)/hv.length):null;
-  const r=computeReadiness(w,fit,hrvAvg);
+  const todayTss=(acts||[]).filter(a=>(a.start_date_local||'').slice(0,10)===td).reduce((s,a)=>s+(a.icu_training_load||0),0);
+  const r=computeReadiness(w,fit,hrvAvg,todayTss);
   const blk=getBlock(curMon);
   const L=[];
   L.push(`Today: ${td}. Athlete: Ori, age-group triathlete.`);
@@ -1125,14 +1133,14 @@ async function loadData(){
 
     $('main').style.display='block';
 
-    renderS1(well,fit);
+    renderS1(well,fit,acts);
     renderS2(weeks,weekKeys,fit);
     renderS3(weeks,weekKeys);
     renderS4(acts);
     renderS5(weeks,weekKeys);
     renderS6(acts);
     renderS7();
-    buildCoachContext(well,fit,weeks,weekKeys);
+    buildCoachContext(well,fit,weeks,weekKeys,acts);
 
     const ts=syncedAt?new Date(syncedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'never';
     $('last-updated').textContent=`Ori · Synced ${ts}${src!=='./data.json'?' (remote)':''}`;
