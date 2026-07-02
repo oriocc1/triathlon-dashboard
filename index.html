@@ -313,10 +313,15 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
 
 <div class="modal-overlay" id="api-key-modal">
   <div class="modal">
-    <h3>Anthropic API Key</h3>
-    <p>Paste your Anthropic API key to power the Training Coach. Stored only in your browser — never sent anywhere except the Anthropic API.<br><br>
-    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get an API key from console.anthropic.com &rarr;</a></p>
+    <h3>Training Coach Setup</h3>
+    <p>Anthropic API key — stored only in your browser.<br>
+    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get a key &rarr;</a></p>
     <input type="password" id="api-key-input" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:12px;color:var(--muted);user-select:none">&#9656; Custom agent system prompt (optional)</summary>
+      <p style="font-size:11px;color:var(--muted);margin:8px 0 4px">Craft your prompt in <a href="https://console.anthropic.com/workbench" target="_blank">console.anthropic.com/workbench</a>, paste it here. Your live training data is always appended automatically.</p>
+      <textarea id="coach-prompt-input" rows="7" placeholder="You are an experienced triathlon coach working with Ori..." style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:9px;resize:vertical;outline:none;margin-top:2px"></textarea>
+    </details>
     <div class="modal-btns">
       <button class="btn" onclick="closeApiKeyModal()">Cancel</button>
       <button class="btn btn-sync" onclick="saveApiKeyAndAsk()">Save &amp; Ask</button>
@@ -328,7 +333,10 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
 <aside class="coach" id="coach" aria-hidden="true">
   <div class="coach-hdr">
     <div><h3>Training Coach</h3><p id="coach-sub">Grounded in your live training data</p></div>
-    <button class="coach-x" onclick="closeCoach()" aria-label="Close">&times;</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="coach-x" onclick="openApiKeyModal()" title="Configure coach" style="font-size:15px">&#9881;</button>
+      <button class="coach-x" onclick="closeCoach()" aria-label="Close">&times;</button>
+    </div>
   </div>
   <div class="coach-body" id="coach-body">
     <div class="coach-intro" id="coach-intro">Ask about today's session, your load, or recovery. I can see your latest fitness, wellness and recent training.</div>
@@ -966,9 +974,22 @@ function coachFallback(){
 }
 
 let COACH_PENDING_Q='';
-function openApiKeyModal(){$('api-key-modal').classList.add('open');setTimeout(()=>$('api-key-input').focus(),50)}
+function openApiKeyModal(){
+  $('api-key-modal').classList.add('open');
+  const p=localStorage.getItem('anthropic_coach_prompt');
+  if(p)$('coach-prompt-input').value=p;
+  setTimeout(()=>$('api-key-input').focus(),50);
+}
 function closeApiKeyModal(){$('api-key-modal').classList.remove('open');$('api-key-input').value=''}
-function saveApiKeyAndAsk(){const k=$('api-key-input').value.trim();if(!k)return;localStorage.setItem('anthropic_key',k);closeApiKeyModal();if(COACH_PENDING_Q){const q=COACH_PENDING_Q;COACH_PENDING_Q='';coachAsk(q)}}
+function saveApiKeyAndAsk(){
+  const k=$('api-key-input').value.trim();if(!k)return;
+  localStorage.setItem('anthropic_key',k);
+  const p=$('coach-prompt-input').value.trim();
+  if(p)localStorage.setItem('anthropic_coach_prompt',p);
+  else localStorage.removeItem('anthropic_coach_prompt');
+  closeApiKeyModal();
+  if(COACH_PENDING_Q){const q=COACH_PENDING_Q;COACH_PENDING_Q='';coachAsk(q)}
+}
 
 async function coachAsk(preset){
   const inp=$('coach-in');
@@ -985,10 +1006,14 @@ async function coachAsk(preset){
   const think=addMsg('a','Thinking…','think');
   $('coach-send').disabled=true;
   try{
+    const customPrompt=localStorage.getItem('anthropic_coach_prompt');
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:COACH_SYS+'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX,messages:COACH_HIST})
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-beta':'prompt-caching-2024-07-31','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:[
+        {type:'text',text:customPrompt||COACH_SYS,cache_control:{type:'ephemeral'}},
+        {type:'text',text:'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX}
+      ],messages:COACH_HIST})
     });
     if(resp.status===401||resp.status===403){localStorage.removeItem('anthropic_key');think.remove();COACH_HIST.pop();COACH_PENDING_Q=text;$('coach-send').disabled=false;openApiKeyModal();return;}
     if(!resp.ok)throw new Error(`API ${resp.status}`);
