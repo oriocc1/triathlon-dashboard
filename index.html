@@ -507,8 +507,15 @@ function detectBrick(acts){
 }
 
 function scoreWeek(wkActs,mon){
+  if(!wkActs.length)return null;
   const blk=getBlock(mon);
-  if(!blk||blk.name==='Base'||blk.name==='Recovery'||blk.name.startsWith('Taper'))return null;
+  // Generic score for phases with no block targets (pre-plan, recovery, taper)
+  if(!blk||blk.longRideKm===0){
+    const sessions=wkActs.length;
+    const sports=new Set(wkActs.map(a=>spt(a))).size;
+    const score=Math.min(10,Math.round(Math.min(sessions,5)*1.6+Math.min(sports,3)*0.4));
+    return{pts:sessions,maxPts:null,score:Math.max(1,score),longestRide:0,longestRun:0,blk:blk||{name:'—',longRideKm:0,longRunKm:0},generic:true};
+  }
   let pts=0,maxPts=5;
   if(blk.swims)maxPts++;if(blk.sc)maxPts++;if(blk.zwift)maxPts++;if(blk.brick)maxPts++;
   const longestRide=wkActs.filter(a=>spt(a)==='bike'&&!isVirt(a)).reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);
@@ -524,6 +531,11 @@ function scoreWeek(wkActs,mon){
 
 function scoreNarr(sr,isCur){
   if(!sr||isCur)return'';
+  if(sr.generic){
+    if(sr.score>=8)return`Active week — ${sr.pts} sessions across multiple disciplines. Solid consistency.`;
+    if(sr.score>=5)return`Decent activity — ${sr.pts} sessions. No block targets in this phase.`;
+    return`Light week — ${sr.pts} session${sr.pts===1?'':'s'}. Every bit counts.`;
+  }
   const{score,longestRide,longestRun,blk,pts,maxPts}=sr;
   const gap=blk.longRideKm-longestRide;
   if(score>=9)return'Outstanding — every target hit. Weeks like this are the ones that show up on race day. Keep stacking them.';
