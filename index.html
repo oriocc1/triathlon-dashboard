@@ -274,6 +274,18 @@ tr:not(.avg-row):hover td{background:rgba(255,255,255,.02)}
 .coach-in:focus{border-color:var(--blue)}
 .coach-send{background:var(--blue);border:none;color:#0b1220;border-radius:10px;padding:0 17px;height:41px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0}
 .coach-send:disabled{opacity:.45;cursor:default}
+.msg-a h3{font-size:13px;font-weight:700;margin:10px 0 4px;color:var(--text)}
+.msg-a h4{font-size:12px;font-weight:700;margin:8px 0 3px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.msg-a p{margin:4px 0}
+.msg-a ul,.msg-a ol{margin:4px 0 4px 16px;padding:0}
+.msg-a li{margin:2px 0}
+.msg-a hr{border:none;border-top:1px solid var(--border);margin:8px 0}
+.msg-a code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:'IBM Plex Mono',monospace}
+.msg-a table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px}
+.msg-a th{background:var(--bg3);color:var(--text2);font-weight:600;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.msg-a td{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+.msg-a tr:last-child td{border-bottom:none}
+.msg-a br{display:none}
 
 /* ── Debug ── */
 details.dbg{margin-top:24px}
@@ -959,7 +971,29 @@ function openCoach(){$('coach').classList.add('open');$('coach-overlay').classLi
 function closeCoach(){$('coach').classList.remove('open');$('coach-overlay').classList.remove('open');$('coach').setAttribute('aria-hidden','true')}
 function coachKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();coachAsk()}}
 function scrollCoach(){const b=$('coach-body');b.scrollTop=b.scrollHeight}
-function fmtMsg(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/(^|\n)\s*[-•]\s+/g,'$1• ')}
+function fmtMsg(t){
+  const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*([^*]+)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  const tbl=rows=>{
+    const data=rows.filter(r=>!/^\|[\s\-:|]+\|$/.test(r.trim()));
+    if(!data.length)return'';
+    return'<table>'+data.map((r,i)=>{const tag=i===0?'th':'td';return'<tr>'+r.split('|').slice(1,-1).map(c=>`<${tag}>${inl(c.trim())}</${tag}>`).join('')+'</tr>'}).join('')+'</table>';
+  };
+  const lines=t.split('\n');
+  let html='',i=0;
+  while(i<lines.length){
+    const l=lines[i];
+    if(/^###\s/.test(l)){html+=`<h4>${inl(l.slice(4))}</h4>`;i++;}
+    else if(/^##\s/.test(l)){html+=`<h3>${inl(l.slice(3))}</h3>`;i++;}
+    else if(/^#\s/.test(l)){html+=`<h3>${inl(l.slice(2))}</h3>`;i++;}
+    else if(/^---+$/.test(l.trim())){html+='<hr>';i++;}
+    else if(/^\|/.test(l)){const tb=[];while(i<lines.length&&/^\|/.test(lines[i]))tb.push(lines[i++]);html+=tbl(tb);}
+    else if(/^[-*]\s/.test(l)){let li='';while(i<lines.length&&/^[-*]\s/.test(lines[i]))li+=`<li>${inl(lines[i++].replace(/^[-*]\s+/,''))}</li>`;html+=`<ul>${li}</ul>`;}
+    else if(/^\d+\.\s/.test(l)){let li='';while(i<lines.length&&/^\d+\.\s/.test(lines[i]))li+=`<li>${inl(lines[i++].replace(/^\d+\.\s+/,''))}</li>`;html+=`<ol>${li}</ol>`;}
+    else if(l.trim()===''){html+='<br>';i++;}
+    else{let p=[];while(i<lines.length&&lines[i].trim()!==''&&!/^[#|]/.test(lines[i])&&!/^[-*]\s/.test(lines[i])&&!/^\d+\.\s/.test(lines[i])&&!/^---+$/.test(lines[i].trim()))p.push(lines[i++]);html+=`<p>${inl(p.join(' '))}</p>`;}
+  }
+  return html;
+}
 function addMsg(role,text,extra){const d=document.createElement('div');d.className='msg msg-'+role+(extra?' '+extra:'');if(role==='a'&&!extra){d.innerHTML=fmtMsg(text)}else{d.textContent=text}$('coach-body').appendChild(d);scrollCoach();return d}
 
 function coachFallback(){
