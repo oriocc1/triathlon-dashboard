@@ -1062,6 +1062,7 @@ async function loadData(){
     let data=null,src='./data.json';
     try{const r=await fetch('./data.json?t='+Date.now());if(r.ok){const d=await r.json();if(d?.activities?.length)data=d}}catch(_){}
     if(!data){src=REMOTE;const r=await fetch(REMOTE+'?t='+Date.now());if(!r.ok)throw new Error(`Could not load data.json (HTTP ${r.status})`);data=await r.json()}
+    try{const r=await fetch('./coach-context.md?t='+Date.now());if(r.ok){const t=await r.text();if(t.trim())localStorage.setItem('anthropic_coach_prompt',t.trim())}}catch(_){}
 
     const acts=Array.isArray(data.activities)?data.activities:[];
     const well=data.wellness||{};
