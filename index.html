@@ -688,12 +688,13 @@ function sparkInsight(kind,todayVal,avg,data){
   return '';
 }
 
-function sparkCard(id,lbl,col,todayVal,unit,data14,kind){
+function sparkCard(id,lbl,col,todayVal,unit,data14,kind,sub){
   const valid=data14.filter(v=>v!=null);
   const avg=valid.length?valid.reduce((s,v)=>s+v,0)/valid.length:null;
   const fmtV=v=>v==null?'—':unit==='h'?v.toFixed(1)+'h':Math.round(v);
   const note=kind?`<div class="spark-note">${sparkInsight(kind,todayVal,avg,data14)}</div>`:'';
-  return`<div class="spark-card"><div class="spark-top"><span class="spark-lbl">${esc(lbl)}</span><div><div class="spark-val" style="color:${col}">${fmtV(todayVal)}</div><div class="spark-avg">14d avg ${fmtV(avg)}</div></div></div><canvas id="${id}"></canvas>${note}</div>`
+  const subLine=sub!=null?sub:`14d avg ${fmtV(avg)}`;
+  return`<div class="spark-card"><div class="spark-top"><span class="spark-lbl">${esc(lbl)}</span><div><div class="spark-val" style="color:${col}">${fmtV(todayVal)}</div><div class="spark-avg">${subLine}</div></div></div><canvas id="${id}"></canvas>${note}</div>`
 }
 
 function drawSpark(id,col,data,labelFn){
@@ -744,7 +745,7 @@ function renderS1(wellness,fitness,acts){
 
   $('sparklines').innerHTML=[
     sparkCard('sp-hrv','HRV','#5fb4e6',w.hrv,'ms',hrvD,'hrv'),
-    sparkCard('sp-bb','Body Battery','#e0b050',w.body_battery,'',bbD,'bb'),
+    sparkCard('sp-bb','Body Battery','#e0b050',w.body_battery,'',bbD,'bb',w.body_battery_max!=null?`max ${Math.round(w.body_battery_max)}`:'max —'),
     sparkCard('sp-str','Stress','#f0837f',w.stress,'',stD,'stress'),
     sparkCard('sp-slh','Sleep Hours','#b49ce0',w.sleep_secs!=null?w.sleep_secs/3600:null,'h',slhD,'sleeph'),
     sparkCard('sp-sls','Sleep Score','#c9a2ec',w.sleep_score,'',slsD,'sleeps'),
