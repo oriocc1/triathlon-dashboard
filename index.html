@@ -520,31 +520,50 @@ function scoreWeek(wkActs,mon){
   let pts=0,maxPts=5;
   if(blk.swims)maxPts++;if(blk.sc)maxPts++;if(blk.zwift)maxPts++;if(blk.brick)maxPts++;
   const longestRide=wkActs.filter(a=>spt(a)==='bike'&&!isVirt(a)).reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);
-  if(longestRide>=blk.longRideKm)pts+=3;else if(longestRide>=blk.longRideKm*.8)pts+=2;else if(longestRide>0)pts+=1;
+  const hitRide=longestRide>=blk.longRideKm,partialRide=longestRide>=blk.longRideKm*.8;
+  if(hitRide)pts+=3;else if(partialRide)pts+=2;else if(longestRide>0)pts+=1;
   const longestRun=wkActs.filter(a=>spt(a)==='run').reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);
-  if(longestRun>=blk.longRunKm)pts+=2;else if(longestRun>=blk.longRunKm*.7)pts+=1;
-  if(blk.swims&&wkActs.filter(a=>spt(a)==='swim').length>=blk.swims)pts+=1;
-  if(blk.sc&&wkActs.some(a=>/weight/i.test(a.sport_type||'')))pts+=1;
-  if(blk.zwift&&wkActs.some(a=>isVirt(a)))pts+=1;
-  if(blk.brick&&detectBrick(wkActs))pts+=1;
-  return{pts,maxPts,score:Math.max(1,Math.min(10,Math.round((pts/maxPts)*10))),longestRide,longestRun,blk}
+  const hitRun=longestRun>=blk.longRunKm,partialRun=longestRun>=blk.longRunKm*.7;
+  if(hitRun)pts+=2;else if(partialRun)pts+=1;
+  const hitSwim=blk.swims>0&&wkActs.filter(a=>spt(a)==='swim').length>=blk.swims;
+  if(hitSwim)pts+=1;
+  const hitSC=!!(blk.sc&&wkActs.some(a=>/weight/i.test(a.sport_type||'')));
+  if(hitSC)pts+=1;
+  const hitZwift=!!(blk.zwift&&wkActs.some(a=>isVirt(a)));
+  if(hitZwift)pts+=1;
+  const hitBrick=!!(blk.brick&&detectBrick(wkActs));
+  if(hitBrick)pts+=1;
+  return{pts,maxPts,score:Math.max(1,Math.min(10,Math.round((pts/maxPts)*10))),longestRide,longestRun,blk,hitRide,partialRide,hitRun,partialRun,hitSwim,hitSC,hitZwift,hitBrick}
 }
 
 function scoreNarr(sr,isCur){
   if(!sr||isCur)return'';
   if(sr.generic){
-    if(sr.score>=8)return`Active week — ${sr.pts} sessions across multiple disciplines. Solid consistency.`;
-    if(sr.score>=5)return`Decent activity — ${sr.pts} sessions. No block targets in this phase.`;
-    return`Light week — ${sr.pts} session${sr.pts===1?'':'s'}. Every bit counts.`;
+    if(sr.score>=8)return`${sr.pts} sessions across multiple disciplines — solid consistency this week.`;
+    if(sr.score>=5)return`${sr.pts} sessions logged. No structured targets in this phase — just stay active.`;
+    return`Light week — ${sr.pts} session${sr.pts===1?'':'s'} logged.`;
   }
-  const{score,longestRide,longestRun,blk,pts,maxPts}=sr;
-  const gap=blk.longRideKm-longestRide;
-  if(score>=9)return'Outstanding — every target hit. Weeks like this are the ones that show up on race day. Keep stacking them.';
-  if(longestRide===0&&blk.longRideKm>0)return`No outdoor ride — that's 3pts off immediately, capping the week at ${score}/10. The bike is the biggest single fitness lever in this block. Everything else looked solid, but the ride is the non-negotiable.`;
-  if(gap>0&&longestRide>0&&gap<=20)return`Long ride fell ${gap.toFixed(0)}km short of the ${blk.longRideKm}km target — partial credit. Close, but closing that gap next week is worth a full point.`;
-  if(score>=7)return`Strong week — ${pts}/${maxPts} points. Most targets hit, a couple of details to tighten up but the consistency is there.`;
-  if(score>=5)return`Decent foundation — ${pts}/${maxPts} points. Some targets missed but meaningful training done. Prioritise the gaps next week.`;
-  return`Tough week — only ${pts}/${maxPts} points. Life happens. Identify the one most important session and protect it next week.`
+  const{longestRide,longestRun,blk,hitRide,partialRide,hitRun,partialRun,hitSwim,hitSC,hitZwift,hitBrick}=sr;
+  const goods=[],misses=[];
+  if(blk.longRideKm>0){
+    if(hitRide) goods.push(`long ride done (${longestRide.toFixed(0)}km)`);
+    else if(partialRide) misses.push(`long ride close but short — ${longestRide.toFixed(0)}km of ${blk.longRideKm}km target`);
+    else if(longestRide>0) misses.push(`long ride well short — ${longestRide.toFixed(0)}km of ${blk.longRideKm}km target`);
+    else misses.push(`no outdoor ride (target ${blk.longRideKm}km — biggest single points loss)`);
+  }
+  if(blk.longRunKm>0){
+    if(hitRun) goods.push(`long run done (${longestRun.toFixed(0)}km)`);
+    else if(partialRun) misses.push(`run slightly short — ${longestRun.toFixed(0)}km of ${blk.longRunKm}km target`);
+    else if(longestRun>0) misses.push(`run volume low — ${longestRun.toFixed(0)}km of ${blk.longRunKm}km target`);
+    else misses.push('no runs recorded');
+  }
+  if(blk.swims>0){hitSwim?goods.push('swim done'):misses.push('swim missed')}
+  if(blk.sc){hitSC?goods.push('S&C done'):misses.push('S&C missed')}
+  if(blk.zwift){hitZwift?goods.push('Zwift done'):misses.push('no Zwift session')}
+  if(blk.brick){hitBrick?goods.push('brick done'):misses.push('no brick this week')}
+  if(!misses.length) return `Everything hit — ${goods.join(', ')}.`;
+  if(!goods.length) return `Tough week — ${misses.join('; ')}.`;
+  return `${cap(goods.join(', '))}. Dropped points for: ${misses.join(', ')}.`;
 }
 
 function groupByWeek(acts){
