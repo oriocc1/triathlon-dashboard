@@ -197,10 +197,14 @@ def fetch_garmin_wellness(days=30):
             if bb:
                 level = None
                 for entry in reversed(bb):
-                    v = entry.get("bodyBatteryMostRecentValue") or entry.get("endBodyBatteryLevel")
-                    if v is not None and v > 0:
-                        level = v
-                        break
+                    # bodyBatteryValuesArray is a list of [timestamp_ms, level] pairs
+                    values = entry.get("bodyBatteryValuesArray") or []
+                    if values:
+                        last = values[-1]
+                        v = last[1] if isinstance(last, (list, tuple)) and len(last) > 1 else None
+                        if v is not None and v > 0:
+                            level = v
+                            break
                 if level:
                     day["body_battery"] = level
         except Exception:
