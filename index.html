@@ -1010,7 +1010,7 @@ async function coachAsk(preset){
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-beta':'prompt-caching-2024-07-31','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:[
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,system:[
         {type:'text',text:customPrompt||COACH_SYS,cache_control:{type:'ephemeral'}},
         {type:'text',text:'\n\n=== ORI\'S CURRENT DATA ===\n'+COACH_CTX}
       ],messages:COACH_HIST})
