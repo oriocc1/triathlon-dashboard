@@ -285,8 +285,10 @@ tr:not(.avg-row):hover td{background:rgba(255,255,255,.02)}
 .info:hover .info-pop,.info:focus .info-pop{opacity:1;visibility:visible}
 
 /* ── Coach drawer ── */
-.btn-coach{background:rgba(106,168,240,.12);border-color:rgba(106,168,240,.35);color:var(--blue)}
-.btn-coach:hover{border-color:var(--blue);color:var(--blue)}
+.coach-fab{position:fixed;bottom:28px;right:28px;z-index:105;display:flex;align-items:center;gap:9px;background:var(--blue);border:none;border-radius:28px;color:#0b1220;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px;padding:13px 22px;cursor:pointer;box-shadow:0 4px 20px rgba(106,168,240,.35);transition:transform .15s,box-shadow .15s}
+.coach-fab:hover{transform:translateY(-2px);box-shadow:0 6px 26px rgba(106,168,240,.45)}
+.coach-fab span{white-space:nowrap}
+@media(max-width:600px){.coach-fab{bottom:18px;right:16px;padding:11px 18px;font-size:12.5px}}
 .coach-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:110;opacity:0;visibility:hidden;transition:opacity .2s}
 .coach-overlay.open{opacity:1;visibility:visible}
 .coach{position:fixed;top:0;right:0;height:100%;width:420px;max-width:92vw;background:var(--bg2);border-left:1px solid var(--border);z-index:120;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:-12px 0 44px rgba(0,0,0,.4)}
@@ -339,7 +341,6 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
   <div class="hdr-btns">
     <label class="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()"><span class="theme-track"><span class="theme-thumb"></span></span><span class="theme-lbl" id="theme-lbl">Dark</span></label>
     <a class="btn btn-plan" href="plan.html" style="text-decoration:none">&#9776; Season Plan</a>
-    <button class="btn btn-coach" onclick="openCoach()">&#10022; Ask Coach</button>
     <span class="race-chip" id="race-chip" style="display:none"></span>
     <span class="sync-status" id="sync-status"></span>
     <button class="btn btn-sync" id="sync-btn" onclick="handleSync()">&#8635; Sync</button>
@@ -378,6 +379,7 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
   </div>
 </div>
 
+<button class="coach-fab" onclick="openCoach()" title="Ask Coach">&#10022;<span>Ask Coach</span></button>
 <div class="coach-overlay" id="coach-overlay" onclick="closeCoach()"></div>
 <aside class="coach" id="coach" aria-hidden="true">
   <div class="coach-hdr">
