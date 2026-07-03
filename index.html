@@ -504,7 +504,8 @@ function fmtHrLabel(dec){const h=Math.floor(dec+1e-6),m=Math.round((dec-h)*60);r
 
 function weekMon(ds){const d=new Date(ds),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return d.toISOString().slice(0,10)}
 function weekLabel(mon){const[y,mo,d]=mon.split('-').map(Number);const a=new Date(y,mo-1,d),b=new Date(y,mo-1,d+6);const f=dt=>dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});return f(a)+' – '+f(b)}
-function today(){return new Date().toISOString().slice(0,10)}
+function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function todayLabel(){const d=new Date();return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
 
 function spt(a){const t=(a.sport_type||'').toLowerCase();if(/swim/.test(t))return'swim';if(/ride|cycling|triathlon/.test(t))return'bike';if(/run|walk/.test(t))return'run';return'other'}
 function isVirt(a){return/virtual/i.test(a.sport_type||'')}
@@ -1030,7 +1031,7 @@ function buildCoachContext(well,fit,weeks,weekKeys,acts){
   const r=computeReadiness(w,fit,hrvAvg,todayTss);
   const blk=getBlock(curMon);
   const L=[];
-  L.push(`Today: ${td}. Athlete: ${ATHLETE_NAME}, ${(CFG.athlete||{}).sport||'triathlon'} athlete.`);
+  L.push(`Today: ${todayLabel()} (${td}). Athlete: ${ATHLETE_NAME}, ${(CFG.athlete||{}).sport||'triathlon'} athlete.`);
   if(blk)L.push(`Current block: ${blk.name} (long-ride target ${blk.longRideKm}km, long-run target ${blk.longRunKm}km).`);
   const cd=raceCD(curMon).replace(/<[^>]+>/g,'');
   L.push(`Races: Race 1 ${RACE1}, Race 2 ${RACE2}.${cd?' '+cd+'.':''}`);

@@ -32,7 +32,7 @@ The pattern is clear: the run saved him (div rank 67), the bike hurt him (div ra
 
 **Training approach**
 - Structured block periodisation: currently in Block 2 — Build (29 Jun - 26 Jul), followed by race-specific and taper blocks
-- Weekly template: Mon rest, Tue quality run, Wed Zwift structured, Thu swim, Fri gym S&C, Sat long ride, Sun long run
+- Typical week structure (guideline only — actual sessions vary based on schedule, fatigue, and what has already been done): Mon rest, Tue quality run, Wed Zwift structured, Thu swim, Fri gym S&C, Sat long ride, Sun long run. Never treat this as a fixed plan — always use the actual Strava data to see what has been done and base advice on reality, not the template.
 - Bike race pacing: target 78-82% FTP — leave legs for the run
 
 **Injury history / flags**
