@@ -1139,8 +1139,10 @@ async function coachAsk(preset){
   const inp=$('coach-in');
   const text=(preset||inp.value||'').trim();
   if(!text)return;
+  const proxyUrl=(CFG.proxy||{}).url;
+  const proxyUser=(CFG.proxy||{}).user||ATHLETE_NAME;
   const apiKey=localStorage.getItem('anthropic_key');
-  if(!apiKey){COACH_PENDING_Q=text;inp.value='';openApiKeyModal();return;}
+  if(!proxyUrl&&!apiKey){COACH_PENDING_Q=text;inp.value='';openApiKeyModal();return;}
   inp.value='';
   const intro=$('coach-intro'),chips=$('coach-chips');
   if(intro)intro.style.display='none';
@@ -1151,15 +1153,28 @@ async function coachAsk(preset){
   $('coach-send').disabled=true;
   try{
     const customPrompt=localStorage.getItem('anthropic_coach_prompt');
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-beta':'prompt-caching-2024-07-31','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,system:[
-        {type:'text',text:customPrompt||getCoachSys(),cache_control:{type:'ephemeral'}},
-        {type:'text',text:`\n\n=== ${ATHLETE_NAME.toUpperCase()}'S CURRENT DATA ===\n`+COACH_CTX}
-      ],messages:COACH_HIST})
-    });
-    if(resp.status===401||resp.status===403){localStorage.removeItem('anthropic_key');think.remove();COACH_HIST.pop();COACH_PENDING_Q=text;$('coach-send').disabled=false;openApiKeyModal();return;}
+    const sysPrompt=customPrompt||getCoachSys();
+    const sysData=`\n\n=== ${ATHLETE_NAME.toUpperCase()}'S CURRENT DATA ===\n`+COACH_CTX;
+    let resp;
+    if(proxyUrl){
+      resp=await fetch(proxyUrl,{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({user:proxyUser,messages:COACH_HIST,system:[
+          {type:'text',text:sysPrompt},{type:'text',text:sysData}
+        ]})
+      });
+    } else {
+      resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-beta':'prompt-caching-2024-07-31','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,system:[
+          {type:'text',text:sysPrompt,cache_control:{type:'ephemeral'}},
+          {type:'text',text:sysData}
+        ],messages:COACH_HIST})
+      });
+      if(resp.status===401||resp.status===403){localStorage.removeItem('anthropic_key');think.remove();COACH_HIST.pop();COACH_PENDING_Q=text;$('coach-send').disabled=false;openApiKeyModal();return;}
+    }
     if(!resp.ok)throw new Error(`API ${resp.status}`);
     const data=await resp.json();
     const reply=data.content[0].text;

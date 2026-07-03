@@ -14,6 +14,10 @@
     "owner": "oribrunner",
     "repo": "triathlon-dashboard"
   },
+  "proxy": {
+    "url": "https://triathlon-proxy.vercel.app/api/coach",
+    "user": "oribrunner"
+  },
   "races": [
     { "name": "70.3 Knokke-Heist", "date": "2026-09-06", "priority": "A" },
     { "name": "70.3 Cascais",      "date": "2026-10-17", "priority": "A" }
