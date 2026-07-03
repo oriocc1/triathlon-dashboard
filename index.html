@@ -17,6 +17,14 @@
   --ctl:#34d399;--atl:#f0837f;
   --green:#4ec98a;--amber:#e0b050;--red:#f0837f;--blue:#6aa8f0;--violet:#b49ce0;
 }
+[data-theme="light"]{
+  --bg:#f4f5f7;--bg2:#ffffff;--bg3:#eceef1;--bg4:#e2e5ea;
+  --border:#d8dbe2;--line:#e2e5ea;
+  --text:#111318;--text2:#3a3f4a;--muted:#6b7280;--muted2:#9ca3af;
+  --swim:#2a8ec4;--bike:#c47e10;--run:#d45a56;--other:#7c5cbf;
+  --ctl:#1aab70;--atl:#d45a56;
+  --green:#1aab70;--amber:#c47e10;--red:#d45a56;--blue:#2e6fd4;--violet:#7c5cbf;
+}
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .mono{font-family:'IBM Plex Mono',monospace}
 
@@ -318,6 +326,7 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
     <div class="hdr-sub" id="last-updated">Loading…</div>
   </div>
   <div class="hdr-btns">
+    <button class="btn btn-theme" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     <a class="btn btn-plan" href="plan.html" style="text-decoration:none">&#9776; Season Plan</a>
     <button class="btn btn-coach" onclick="openCoach()">&#10022; Ask Coach</button>
     <span class="race-chip" id="race-chip" style="display:none"></span>
@@ -1215,6 +1224,11 @@ async function loadData(){
   }catch(err){const b=$('b-err');b.textContent='Error: '+err.message;b.classList.add('show');$('main').style.display='block'}
   finally{$('loading').style.display='none';$('refresh-btn').disabled=false}
 }
+// ── Theme ──────────────────────────────────────────────────────────────────────
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);$('theme-btn').textContent=t==='light'?'☾':'☀';localStorage.setItem('theme',t)}
+function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
+applyTheme(localStorage.getItem('theme')||'dark');
+
 initConfig().then(()=>loadData());
 </script>
 </body>
