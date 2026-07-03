@@ -16,6 +16,7 @@
   --swim:#5fb4e6;--bike:#e0b050;--run:#f0837f;--other:#b49ce0;
   --ctl:#34d399;--atl:#f0837f;
   --green:#4ec98a;--amber:#e0b050;--red:#f0837f;--blue:#6aa8f0;--violet:#b49ce0;
+  --hdr-bg:rgba(20,22,30,.88);
 }
 [data-theme="light"]{
   --bg:#f4f5f7;--bg2:#ffffff;--bg3:#eceef1;--bg4:#e2e5ea;
@@ -24,12 +25,13 @@
   --swim:#2a8ec4;--bike:#c47e10;--run:#d45a56;--other:#7c5cbf;
   --ctl:#1aab70;--atl:#d45a56;
   --green:#1aab70;--amber:#c47e10;--red:#d45a56;--blue:#2e6fd4;--violet:#7c5cbf;
+  --hdr-bg:rgba(244,245,247,.92);
 }
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .mono{font-family:'IBM Plex Mono',monospace}
 
 /* ── Header ── */
-.hdr{position:sticky;top:0;z-index:10;background:rgba(20,22,30,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.hdr{position:sticky;top:0;z-index:10;background:var(--hdr-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .hdr h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;letter-spacing:-.01em}
 .hdr-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.03em;text-transform:uppercase}
 .hdr-btns{display:flex;gap:9px;align-items:center;flex-shrink:0}
@@ -246,6 +248,12 @@ tr:not(.avg-row):hover td{background:rgba(255,255,255,.02)}
 .act-meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:2px}
 .act-stats{display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12px}
 
+/* ── Theme toggle ── */
+.btn-theme{width:40px;height:22px;border-radius:11px;background:var(--bg4);border:1px solid var(--border);cursor:pointer;padding:0;position:relative;flex-shrink:0;transition:background .25s}
+.btn-theme::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--muted);top:2px;left:2px;transition:transform .25s,background .25s}
+[data-theme="light"] .btn-theme{background:var(--blue);border-color:var(--blue)}
+[data-theme="light"] .btn-theme::after{transform:translateX(18px);background:#fff}
+
 /* ── Mobile ── */
 @media(max-width:600px){
   .page{padding:14px 12px 80px}
@@ -326,7 +334,7 @@ details.dbg pre{background:var(--bg2);border:1px solid var(--border);border-radi
     <div class="hdr-sub" id="last-updated">Loading…</div>
   </div>
   <div class="hdr-btns">
-    <button class="btn btn-theme" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">Light</button>
+    <button class="btn-theme" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode"></button>
     <a class="btn btn-plan" href="plan.html" style="text-decoration:none">&#9776; Season Plan</a>
     <button class="btn btn-coach" onclick="openCoach()">&#10022; Ask Coach</button>
     <span class="race-chip" id="race-chip" style="display:none"></span>
@@ -1225,7 +1233,7 @@ async function loadData(){
   finally{$('loading').style.display='none';$('refresh-btn').disabled=false}
 }
 // ── Theme ──────────────────────────────────────────────────────────────────────
-function applyTheme(t){document.documentElement.setAttribute('data-theme',t);$('theme-btn').textContent=t==='light'?'Dark':'Light';localStorage.setItem('theme',t)}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem('theme',t)}
 function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
 applyTheme(localStorage.getItem('theme')||'dark');
 
