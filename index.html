@@ -937,13 +937,19 @@ function renderS3(weeks,weekKeys){
 }
 
 // ── Section 4 ─────────────────────────────────────────────────────────────────
+let _s4Acts=null;
 function renderS4(acts){
+  _s4Acts=acts;
+  const light=document.documentElement.getAttribute('data-theme')==='light';
+  const gridC=light?'rgba(180,185,195,.35)':'rgba(39,43,55,.9)';
+  const tickC=light?'#6b7280':'#787e88';
+  const lblFill=light?'#3a3f4a':'#c2c7d0';
+
   const weeks=groupByWeek(acts);
   const keys=Object.keys(weeks).sort().slice(-8);
   const lbls=keys.map(mon=>{const d=new Date(mon);return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})});
-  const gridC='rgba(39,43,55,.9)',tickC='#787e88';
 
-  const wkTotals={id:'wkTotals',afterDatasetsDraw(ch){const{ctx}=ch,y=ch.scales.y;ctx.save();ctx.font='600 10.5px "Space Grotesk",sans-serif';ctx.fillStyle='#c2c7d0';ctx.textAlign='center';ctx.textBaseline='bottom';ch.data.labels.forEach((_,i)=>{const sum=ch.data.datasets.reduce((s,ds)=>s+(+ds.data[i]||0),0);if(sum<=0)return;const bar=ch.getDatasetMeta(0).data[i];ctx.fillText(fmtHrLabel(sum),bar.x,y.getPixelForValue(sum)-6)});ctx.restore()}};
+  const wkTotals={id:'wkTotals',afterDatasetsDraw(ch){const{ctx}=ch,y=ch.scales.y;ctx.save();ctx.font='600 10.5px "Space Grotesk",sans-serif';ctx.fillStyle=lblFill;ctx.textAlign='center';ctx.textBaseline='bottom';ch.data.labels.forEach((_,i)=>{const sum=ch.data.datasets.reduce((s,ds)=>s+(+ds.data[i]||0),0);if(sum<=0)return;const bar=ch.getDatasetMeta(0).data[i];ctx.fillText(fmtHrLabel(sum),bar.x,y.getPixelForValue(sum)-6)});ctx.restore()}};
 
   new Chart($('volChart'),{type:'bar',plugins:[wkTotals],data:{labels:lbls,datasets:[
     {label:'Bike',data:keys.map(m=>+((weeks[m].bike||0)/3600).toFixed(2)),backgroundColor:'rgba(224,176,80,.8)',borderRadius:4,stack:'v'},
@@ -954,10 +960,14 @@ function renderS4(acts){
 
   const hist=computeFitHist(acts);
   const step=Math.max(1,Math.floor(hist.length/12));
-  new Chart($('fitChart'),{type:'line',data:{labels:hist.map((h,i)=>i%step===0?new Date(h.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''),datasets:[
+  const fitLbls=hist.map((h,i)=>{
+    if(i===hist.length-1)return new Date(h.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return i%step===0?new Date(h.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';
+  });
+  new Chart($('fitChart'),{type:'line',data:{labels:fitLbls,datasets:[
     {label:'CTL (fitness)',data:hist.map(h=>h.ctl),borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
     {label:'ATL (fatigue)',data:hist.map(h=>h.atl),borderColor:'#f0837f',backgroundColor:'rgba(240,131,127,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
-  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:tickC,font:{size:11,family:'IBM Plex Mono'},boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle'}}},scales:{x:{grid:{display:false},ticks:{color:tickC,font:{size:10,family:'IBM Plex Mono'},maxTicksLimit:10}},y:{grid:{color:gridC},ticks:{color:tickC,font:{size:10,family:'IBM Plex Mono'}}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:tickC,font:{size:11,family:'IBM Plex Mono'},boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle'}}},scales:{x:{grid:{display:false},ticks:{color:tickC,font:{size:10,family:'IBM Plex Mono'},maxRotation:0}},y:{grid:{color:gridC},ticks:{color:tickC,font:{size:10,family:'IBM Plex Mono'}}}}}});
 }
 
 // ── Section 5 ─────────────────────────────────────────────────────────────────
@@ -1237,7 +1247,10 @@ async function loadData(){
 }
 // ── Theme ──────────────────────────────────────────────────────────────────────
 function applyTheme(t){document.documentElement.setAttribute('data-theme',t);const l=$('theme-lbl');if(l)l.textContent=t==='light'?'Dark':'Light';localStorage.setItem('theme',t)}
-function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
+function toggleTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light');
+  if(_s4Acts){Object.values(Chart.instances).forEach(c=>c.destroy());renderS4(_s4Acts)}
+}
 applyTheme(localStorage.getItem('theme')||'dark');
 
 initConfig().then(()=>loadData());
