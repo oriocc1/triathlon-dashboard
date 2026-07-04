@@ -164,8 +164,10 @@ def fetch_garmin_wellness(days=30):
                 v = summary.get("lastNight") or summary.get("weeklyAvg") or hrv.get("lastNight")
                 if v:
                     day["hrv"] = v
-        except Exception:
-            pass
+                else:
+                    print(f"  {ds}: hrv response had no lastNight/weeklyAvg value: {hrv}")
+        except Exception as err:
+            print(f"  {ds}: get_hrv_data failed — {err}")
 
         try:
             sleep = api.get_sleep_data(ds)
@@ -177,8 +179,12 @@ def fetch_garmin_wellness(days=30):
                 score = ((s.get("sleepScores") or {}).get("overall") or {}).get("value")
                 if score:
                     day["sleep_score"] = score
-        except Exception:
-            pass
+                if not secs and not score:
+                    print(f"  {ds}: sleep response had no sleepTimeSeconds/score: {s}")
+            elif sleep:
+                print(f"  {ds}: sleep response missing dailySleepDTO: {sleep}")
+        except Exception as err:
+            print(f"  {ds}: get_sleep_data failed — {err}")
 
         try:
             stats = api.get_stats(ds)
@@ -189,8 +195,8 @@ def fetch_garmin_wellness(days=30):
                 total_steps = stats.get("totalSteps")
                 if total_steps:
                     day["steps"] = total_steps
-        except Exception:
-            pass
+        except Exception as err:
+            print(f"  {ds}: get_stats failed — {err}")
 
         try:
             bb = api.get_body_battery(ds, ds)
@@ -205,8 +211,8 @@ def fetch_garmin_wellness(days=30):
                             day["body_battery_max"] = max(levels)
                             day["body_battery_min"] = min(levels)
                             break
-        except Exception:
-            pass
+        except Exception as err:
+            print(f"  {ds}: get_body_battery failed — {err}")
 
         try:
             stress = api.get_stress_data(ds)
@@ -214,8 +220,8 @@ def fetch_garmin_wellness(days=30):
                 avg = stress.get("avgStressLevel") or stress.get("overallStressLevel")
                 if avg and avg > 0:
                     day["stress"] = avg
-        except Exception:
-            pass
+        except Exception as err:
+            print(f"  {ds}: get_stress_data failed — {err}")
 
         if day:
             wellness[ds] = day
