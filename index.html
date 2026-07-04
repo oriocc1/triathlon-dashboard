@@ -103,7 +103,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-u
 .mc-val{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
 .mc-val .u{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;color:var(--muted)}
 .mc-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);margin-top:7px}
-.mc-stale{float:right;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--amber);background:rgba(224,176,80,.14);border:1px solid rgba(224,176,80,.3);padding:1px 5px;border-radius:4px;vertical-align:middle}
+.mc-stale{float:right;font-family:'IBM Plex Mono',monospace;font-size:7px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted2);background:transparent;border:1px solid var(--border);padding:1px 4px;border-radius:4px;vertical-align:middle}
 
 /* ── TSB box ── */
 .tsb-box{border-radius:9px;padding:14px 18px;margin-top:12px;border:1px solid;border-left-width:3px}
@@ -525,9 +525,10 @@ function fmtD(m,sp){if(!m)return'';return sp==='swim'?Math.round(m)+'m':(m/1000)
 function fmtE(m){return m?Math.round(m)+'m':'—'}
 function fmtHrLabel(dec){const h=Math.floor(dec+1e-6),m=Math.round((dec-h)*60);return h?(m?`${h}h${m}`:`${h}h`):`${m}m`}
 
-function weekMon(ds){const d=new Date(ds),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return d.toISOString().slice(0,10)}
+function weekMon(ds){const d=new Date(ds),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return isoLocal(d)}
 function weekLabel(mon){const[y,mo,d]=mon.split('-').map(Number);const a=new Date(y,mo-1,d),b=new Date(y,mo-1,d+6);const f=dt=>dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});return f(a)+' – '+f(b)}
-function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function isoLocal(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function today(){return isoLocal(new Date())}
 function todayLabel(){const d=new Date();return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
 
 // Garmin wellness fields can be missing for "today" (sync ran before the day's
@@ -542,7 +543,7 @@ function backfillWellness(wellness,td,maxDays=30){
     srcDate[k]=null;
     for(let i=1;i<=maxDays;i++){
       d.setDate(d.getDate()-1);
-      const ds=d.toISOString().slice(0,10);
+      const ds=isoLocal(d);
       const v=(wellness[ds]||{})[k];
       if(v!=null){out[k]=v;srcDate[k]=ds;break}
     }
@@ -648,7 +649,7 @@ function computeFitHist(acts){
   const daily={};
   for(const a of acts){const d=(a.start_date_local||'').slice(0,10);if(d)daily[d]=(daily[d]||0)+(a.icu_training_load||0)}
   const now=new Date();let ctl=0,atl=0;const hist=[];
-  for(let i=89;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10),load=daily[ds]||0;ctl=ctl+(load-ctl)/42;atl=atl+(load-atl)/7;if(i<70)hist.push({date:ds,ctl:+(ctl.toFixed(1)),atl:+(atl.toFixed(1))})}
+  for(let i=89;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);const ds=isoLocal(d),load=daily[ds]||0;ctl=ctl+(load-ctl)/42;atl=atl+(load-atl)/7;if(i<70)hist.push({date:ds,ctl:+(ctl.toFixed(1)),atl:+(atl.toFixed(1))})}
   return hist
 }
 
@@ -811,7 +812,7 @@ function renderS1(wellness,fitness,acts){
   const sleepH=w.sleep_secs!=null?(w.sleep_secs/3600).toFixed(1):null;
   const stCls=w.stress==null?'c-muted':w.stress<30?'c-pos':w.stress<60?'c-warn':'c-neg';
 
-  const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toISOString().slice(0,10)});
+  const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return isoLocal(d)});
   const g=key=>days14.map(d=>(wellness[d]||{})[key]??null);
   const hrvD=g('hrv'),bbD=g('body_battery'),bbMinD=g('body_battery_min'),bbMaxD=g('body_battery_max'),stD=g('stress');
   const slhD=days14.map(d=>{const s=(wellness[d]||{}).sleep_secs;return s!=null?s/3600:null});
@@ -1083,7 +1084,7 @@ function buildCoachContext(well,fit,weeks,weekKeys,acts){
   const td=today(),curMon=weekMon(td);
   const{w,srcDate}=backfillWellness(well,td);
   const staleNote=k=>(srcDate[k]&&srcDate[k]!==td)?` (${fmtDM(srcDate[k])} data)`:'';
-  const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toISOString().slice(0,10)});
+  const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return isoLocal(d)});
   const hv=days14.map(d=>(well[d]||{}).hrv).filter(x=>x!=null);
   const hrvAvg=hv.length?Math.round(hv.reduce((s,x)=>s+x,0)/hv.length):null;
   const todayTss=(acts||[]).filter(a=>(a.start_date_local||'').slice(0,10)===td).reduce((s,a)=>s+(a.icu_training_load||0),0);
