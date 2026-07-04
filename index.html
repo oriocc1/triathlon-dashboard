@@ -103,6 +103,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-u
 .mc-val{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
 .mc-val .u{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;color:var(--muted)}
 .mc-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);margin-top:7px}
+.mc-stale{float:right;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--amber);background:rgba(224,176,80,.14);border:1px solid rgba(224,176,80,.3);padding:1px 5px;border-radius:4px;vertical-align:middle}
 
 /* ── TSB box ── */
 .tsb-box{border-radius:9px;padding:14px 18px;margin-top:12px;border:1px solid;border-left-width:3px}
@@ -529,6 +530,27 @@ function weekLabel(mon){const[y,mo,d]=mon.split('-').map(Number);const a=new Dat
 function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function todayLabel(){const d=new Date();return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
 
+// Garmin wellness fields can be missing for "today" (sync ran before the day's
+// data existed on Garmin's servers). Backfill each field independently from the
+// most recent prior day that has it, so cards never show a blank for no reason.
+const WELLNESS_BACKFILL_KEYS=['hrv','resting_hr','sleep_secs','sleep_score','body_battery','body_battery_max','body_battery_min','stress','steps'];
+function backfillWellness(wellness,td,maxDays=30){
+  const out={...(wellness[td]||{})},srcDate={};
+  for(const k of WELLNESS_BACKFILL_KEYS){
+    if(out[k]!=null){srcDate[k]=td;continue}
+    const d=new Date(td+'T00:00:00');
+    srcDate[k]=null;
+    for(let i=1;i<=maxDays;i++){
+      d.setDate(d.getDate()-1);
+      const ds=d.toISOString().slice(0,10);
+      const v=(wellness[ds]||{})[k];
+      if(v!=null){out[k]=v;srcDate[k]=ds;break}
+    }
+  }
+  return{w:out,srcDate};
+}
+function fmtDM(ds){const[,m,d]=ds.split('-');return`${d}/${m}`}
+
 function spt(a){const t=(a.sport_type||'').toLowerCase();if(/swim/.test(t))return'swim';if(/ride|cycling|triathlon/.test(t))return'bike';if(/run|walk/.test(t))return'run';return'other'}
 function isVirt(a){return/virtual/i.test(a.sport_type||'')}
 function sportDot(a){return`<span class="sdot" style="background:${SPORT_COL[spt(a)]}"></span>`}
@@ -698,9 +720,10 @@ const DEFS={
 };
 function INFO(key){const t=DEFS[key];if(!t)return'';return `<span class="info" tabindex="0">i<span class="info-pop">${esc(t)}</span></span>`}
 
-function mcCard(lbl,val,sub,cls='',unit='',infoKey=''){
+function mcCard(lbl,val,sub,cls='',unit='',infoKey='',staleDate=null){
   const v=d_(val);
-  return`<div class="mc"><div class="mc-lbl">${esc(lbl)}${INFO(infoKey)}</div><div class="mc-val ${cls}">${esc(String(v))}${unit&&v!=='—'?`<span class="u">${esc(unit)}</span>`:''}</div><div class="mc-sub">${esc(sub)}</div></div>`
+  const staleBadge=staleDate?`<span class="mc-stale" title="No data for today yet — showing the most recent reading available">${esc(staleDate)} data</span>`:'';
+  return`<div class="mc"><div class="mc-lbl">${esc(lbl)}${INFO(infoKey)}${staleBadge}</div><div class="mc-val ${cls}">${esc(String(v))}${unit&&v!=='—'?`<span class="u">${esc(unit)}</span>`:''}</div><div class="mc-sub">${esc(sub)}</div></div>`
 }
 
 function tsbHtml(tsb){
@@ -779,7 +802,9 @@ function drawBodyBatterySpark(id,col,data,minD,maxD){
 
 // ── Section 1 ─────────────────────────────────────────────────────────────────
 function renderS1(wellness,fitness,acts){
-  const td=today(),w=wellness[td]||{};
+  const td=today();
+  const{w,srcDate}=backfillWellness(wellness,td);
+  const staleFmt=k=>(srcDate[k]&&srcDate[k]!==td)?fmtDM(srcDate[k]):null;
   const{ctl,atl,tsb}=fitness;
   const formCls=tsb==null?'c-muted':tsb>10?'c-pos':tsb>0?'c-ctl':tsb>-10?'c-warn':'c-neg';
   const formLbl=tsb==null?'—':tsb>25?'Very fresh':tsb>10?'Fresh':tsb>0?'Balanced':tsb>-10?'Neutral':tsb>-20?'Tired':'Very tired';
@@ -801,13 +826,13 @@ function renderS1(wellness,fitness,acts){
     mcCard('CTL',ctl!=null?Math.round(ctl):null,'fitness','c-ctl','','CTL'),
     mcCard('ATL',atl!=null?Math.round(atl):null,'fatigue','c-atl','','ATL'),
     mcCard('Form',tsb!=null?(tsb>0?'+':'')+Math.round(tsb):null,formLbl+' · TSB',formCls,'','Form'),
-    mcCard('HRV',w.hrv??null,'morning','c-swim','ms','HRV'),
-    mcCard('Resting HR',w.resting_hr??null,'resting','c-swim','bpm'),
-    mcCard('Sleep',sleepH,'last night','c-violet','h'),
-    mcCard('Sleep Score',w.sleep_score??null,'Garmin','c-violet','','Sleep Score'),
-    mcCard('Body Battery',w.body_battery??null,w.body_battery_max!=null?`max ${Math.round(w.body_battery_max)}`:'Garmin','c-warn','','Body Battery'),
-    mcCard('Stress',w.stress??null,'avg',stCls,'','Stress'),
-    mcCard('Steps',w.steps!=null?w.steps.toLocaleString():null,'today','c-muted'),
+    mcCard('HRV',w.hrv??null,'morning','c-swim','ms','HRV',staleFmt('hrv')),
+    mcCard('Resting HR',w.resting_hr??null,'resting','c-swim','bpm','',staleFmt('resting_hr')),
+    mcCard('Sleep',sleepH,'last night','c-violet','h','',staleFmt('sleep_secs')),
+    mcCard('Sleep Score',w.sleep_score??null,'Garmin','c-violet','','Sleep Score',staleFmt('sleep_score')),
+    mcCard('Body Battery',w.body_battery??null,w.body_battery_max!=null?`max ${Math.round(w.body_battery_max)}`:'Garmin','c-warn','','Body Battery',staleFmt('body_battery')),
+    mcCard('Stress',w.stress??null,'avg',stCls,'','Stress',staleFmt('stress')),
+    mcCard('Steps',w.steps!=null?w.steps.toLocaleString():null,staleFmt('steps')?'daily total':'today','c-muted','','',staleFmt('steps')),
   ].join('');
 
   $('tsb-box').innerHTML=tsbHtml(tsb);
@@ -1055,7 +1080,9 @@ Rules:
 }
 
 function buildCoachContext(well,fit,weeks,weekKeys,acts){
-  const td=today(),curMon=weekMon(td),w=well[td]||{};
+  const td=today(),curMon=weekMon(td);
+  const{w,srcDate}=backfillWellness(well,td);
+  const staleNote=k=>(srcDate[k]&&srcDate[k]!==td)?` (${fmtDM(srcDate[k])} data)`:'';
   const days14=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toISOString().slice(0,10)});
   const hv=days14.map(d=>(well[d]||{}).hrv).filter(x=>x!=null);
   const hrvAvg=hv.length?Math.round(hv.reduce((s,x)=>s+x,0)/hv.length):null;
@@ -1069,7 +1096,7 @@ function buildCoachContext(well,fit,weeks,weekKeys,acts){
   L.push(`Races: Race 1 ${RACE1}, Race 2 ${RACE2}.${cd?' '+cd+'.':''}`);
   L.push(`Fitness: CTL ${fit.ctl!=null?Math.round(fit.ctl):'?'} (fitness), ATL ${fit.atl!=null?Math.round(fit.atl):'?'} (fatigue), TSB/Form ${fit.tsb!=null?Math.round(fit.tsb):'?'}.`);
   if(r){const s=r.score,verdict=s>=82?'Primed':s>=68?'Ready to train':s>=54?'Train with care':s>=40?'Go easy':'Rest day';COACH_SUM={score:s,verdict,tsb:fit.tsb!=null?Math.round(fit.tsb):null};L.push(`Computed readiness: ${s}/100 (${verdict}). Sub-scores — ${r.parts.map(p=>p.key+' '+Math.round(p.comp)).join(', ')}.`)}
-  L.push(`This morning: HRV ${w.hrv??'?'}ms (14d avg ${hrvAvg??'?'}), resting HR ${w.resting_hr??'?'}, sleep ${w.sleep_secs?(w.sleep_secs/3600).toFixed(1)+'h':'?'}, sleep score ${w.sleep_score??'?'}, body battery ${w.body_battery??'?'}, stress ${w.stress??'?'}, steps ${w.steps??'?'}.`);
+  L.push(`This morning: HRV ${w.hrv??'?'}ms${staleNote('hrv')} (14d avg ${hrvAvg??'?'}), resting HR ${w.resting_hr??'?'}${staleNote('resting_hr')}, sleep ${w.sleep_secs?(w.sleep_secs/3600).toFixed(1)+'h':'?'}${staleNote('sleep_secs')}, sleep score ${w.sleep_score??'?'}${staleNote('sleep_score')}, body battery ${w.body_battery??'?'}${staleNote('body_battery')}, stress ${w.stress??'?'}${staleNote('stress')}, steps ${w.steps??'?'}${staleNote('steps')}.`);
   const cw=weeks[curMon];
   if(cw){const lr=cw.acts.filter(a=>spt(a)==='bike'&&!isVirt(a)).reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);const lrun=cw.acts.filter(a=>spt(a)==='run').reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);L.push(`This week so far: ${fmtT(cw.total)} across ${cw.sessions} sessions (bike ${fmtT(cw.bike)}, run ${fmtT(cw.run)}, swim ${fmtT(cw.swim)}, other ${fmtT(cw.other)}). Longest ride ${lr.toFixed(0)}km, longest run ${lrun.toFixed(0)}km.`)}
   const recent=weekKeys.slice(-5,-1).reverse();
