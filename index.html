@@ -589,22 +589,27 @@ function scoreWeek(wkActs,mon){
     const score=Math.min(10,Math.round(Math.min(sessions,5)*1.6+Math.min(sports,3)*0.4));
     return{pts:sessions,maxPts:null,score:Math.max(1,score),longestRide:0,longestRun:0,blk:blk||{name:'—',longRideKm:0,longRunKm:0},generic:true};
   }
-  let pts=0,maxPts=5;
-  if(blk.swims)maxPts++;if(blk.sc)maxPts++;if(blk.zwift)maxPts++;if(blk.brick)maxPts++;
+  // Point weights reflect this athlete's own priorities (set during setup) —
+  // defaults match what a triathlete who prioritises bike > run > swim/S&C
+  // would use, so existing configs without explicit weights score unchanged.
+  const dw=(CFG.athlete||{}).disciplineWeights||{};
+  const wBike=dw.bike||3,wRun=dw.run||2,wSwim=dw.swim||1,wSC=dw.strength||1,wZwift=1,wBrick=1;
+  let pts=0,maxPts=wBike+wRun;
+  if(blk.swims)maxPts+=wSwim;if(blk.sc)maxPts+=wSC;if(blk.zwift)maxPts+=wZwift;if(blk.brick)maxPts+=wBrick;
   const longestRide=wkActs.filter(a=>spt(a)==='bike'&&!isVirt(a)).reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);
   const hitRide=longestRide>=blk.longRideKm,partialRide=longestRide>=blk.longRideKm*.8;
-  if(hitRide)pts+=3;else if(partialRide)pts+=2;else if(longestRide>0)pts+=1;
+  if(hitRide)pts+=wBike;else if(partialRide)pts+=Math.max(1,Math.round(wBike*2/3));else if(longestRide>0)pts+=Math.max(1,Math.round(wBike/3));
   const longestRun=wkActs.filter(a=>spt(a)==='run').reduce((mx,a)=>Math.max(mx,(a.distance||0)/1000),0);
   const hitRun=longestRun>=blk.longRunKm,partialRun=longestRun>=blk.longRunKm*.7;
-  if(hitRun)pts+=2;else if(partialRun)pts+=1;
+  if(hitRun)pts+=wRun;else if(partialRun)pts+=Math.max(1,Math.round(wRun/2));
   const hitSwim=blk.swims>0&&wkActs.filter(a=>spt(a)==='swim').length>=blk.swims;
-  if(hitSwim)pts+=1;
+  if(hitSwim)pts+=wSwim;
   const hitSC=!!(blk.sc&&wkActs.some(a=>/weight/i.test(a.sport_type||'')));
-  if(hitSC)pts+=1;
+  if(hitSC)pts+=wSC;
   const hitZwift=!!(blk.zwift&&wkActs.some(a=>isVirt(a)));
-  if(hitZwift)pts+=1;
+  if(hitZwift)pts+=wZwift;
   const hitBrick=!!(blk.brick&&detectBrick(wkActs));
-  if(hitBrick)pts+=1;
+  if(hitBrick)pts+=wBrick;
   return{pts,maxPts,score:Math.max(1,Math.min(10,Math.round((pts/maxPts)*10))),longestRide,longestRun,blk,hitRide,partialRide,hitRun,partialRun,hitSwim,hitSC,hitZwift,hitBrick}
 }
 
