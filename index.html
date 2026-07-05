@@ -28,7 +28,6 @@
   --hdr-bg:rgba(244,245,247,.92);
 }
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
-.mono{font-family:'IBM Plex Mono',monospace}
 
 /* ── Header ── */
 .hdr{position:sticky;top:0;z-index:10;background:var(--hdr-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -178,11 +177,6 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',system-u
 .sdot{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0}
 
 /* ── Pills ── */
-.pill{display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;padding:2px 9px;border-radius:20px;flex-shrink:0}
-.p-blue{background:rgba(106,168,240,.12);color:var(--blue)}
-.p-sg{background:transparent;border:1px solid rgba(78,201,138,.5);color:var(--green)}
-.p-sa{background:transparent;border:1px solid rgba(224,176,80,.5);color:var(--amber)}
-.p-sr{background:transparent;border:1px solid rgba(240,131,127,.5);color:var(--red)}
 .tss-pill{background:rgba(106,168,240,.1);color:var(--blue);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:1px 7px;border-radius:6px}
 .pr-pill{background:rgba(224,176,80,.1);color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:1px 7px;border-radius:6px}
 .wt-pill{display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;padding:2px 9px;border-radius:20px;letter-spacing:.03em}
@@ -275,7 +269,7 @@ tr:not(.avg-row):hover td{background:rgba(255,255,255,.02)}
 
 /* ── Colours ── */
 .c-ctl{color:var(--ctl)}.c-atl{color:var(--atl)}.c-pos{color:var(--green)}.c-neg{color:var(--red)}
-.c-warn{color:var(--amber)}.c-accent{color:var(--blue)}.c-muted{color:var(--muted)}.c-violet{color:var(--violet)}
+.c-warn{color:var(--amber)}.c-muted{color:var(--muted)}.c-violet{color:var(--violet)}
 .c-swim{color:var(--swim)}.c-bike{color:var(--bike)}.c-run{color:var(--run)}.c-other{color:var(--other)}
 
 /* ── Info tooltips ── */
@@ -743,8 +737,6 @@ function tsbHtml(tsb){
   return`<div class="tsb-box ${cls}"><div class="tsb-title">${title}</div><div class="tsb-body">${esc(body)}</div></div>`
 }
 
-function pilledScore(sc){if(sc==null)return'';const cls=sc>=8?'p-sg':sc>=5?'p-sa':'p-sr';return`<span class="pill ${cls}">${sc}/10</span>`}
-
 function sparkTrend(data){
   const v=data.filter(x=>x!=null);
   if(v.length<4)return 0;
@@ -1135,17 +1127,6 @@ function fmtMsg(t){
   return html;
 }
 function addMsg(role,text,extra){const d=document.createElement('div');d.className='msg msg-'+role+(extra?' '+extra:'');if(role==='a'&&!extra){d.innerHTML=fmtMsg(text)}else{d.textContent=text}$('coach-body').appendChild(d);scrollCoach();return d}
-
-function coachFallback(){
-  const s=COACH_SUM;
-  let advice='';
-  if(s.tsb==null)advice='Run a data sync first so I can read your current form.';
-  else if(s.tsb<-20)advice="You're carrying real fatigue right now — keep today easy (zone 2) or take a full rest day.";
-  else if(s.tsb<-10)advice='Moderate fatigue is building — fine to train, but keep intensity in check and protect your sleep.';
-  else if(s.tsb>10)advice="You're fresh — a good day to put quality into a key session.";
-  else advice='Load and recovery are balanced — execute your planned session as written.';
-  return `The live coach runs on Claude inside the preview environment. On your deployed GitHub Pages site you'd wire it to an API key to make it answer freely.\n\nFrom your current data: readiness ${s.score??'—'}/100 (${s.verdict||'—'}), form/TSB ${s.tsb!=null?(s.tsb>0?'+':'')+s.tsb:'—'}. ${advice}`;
-}
 
 let COACH_PENDING_Q='';
 function openApiKeyModal(){
